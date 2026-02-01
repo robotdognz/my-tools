@@ -4,9 +4,7 @@ A personal collection of useful web tools that work offline as a Progressive Web
 
 ## 🚀 Use It
 
-**[Open My Tools](https://yourusername.github.io/my-tools/)**
-
-> Replace `yourusername` with your GitHub username after setup.
+**[Open My Tools](https://rmmarco.github.io/my-tools/)**
 
 ### Install on Your Phone
 
