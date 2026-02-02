@@ -1,9 +1,10 @@
-const CACHE_NAME = 'my-tools-v1';
+const CACHE_NAME = 'my-tools-v3';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/tools/preference-sorter.html',
-  'https://cdn.tailwindcss.com'
+  './',
+  './index.html',
+  './tools/preference-sorter.html',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 // Install: cache core assets
@@ -27,7 +28,7 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch: serve from cache, fallback to network, then cache new requests
+// Fetch: serve from cache, fallback to network
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
@@ -37,12 +38,10 @@ self.addEventListener('fetch', event => {
         }
         
         return fetch(event.request).then(response => {
-          // Don't cache non-successful responses or non-GET requests
           if (!response || response.status !== 200 || event.request.method !== 'GET') {
             return response;
           }
           
-          // Cache the new resource
           const responseToCache = response.clone();
           caches.open(CACHE_NAME)
             .then(cache => cache.put(event.request, responseToCache));
@@ -51,9 +50,8 @@ self.addEventListener('fetch', event => {
         });
       })
       .catch(() => {
-        // Offline fallback for navigation requests
         if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
+          return caches.match('./index.html');
         }
       })
   );
