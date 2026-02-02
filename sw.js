@@ -1,58 +1,32 @@
-const CACHE_NAME = 'my-tools-v3';
-const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './tools/preference-sorter.html',
-  './icon-192.png',
-  './icon-512.png'
-];
+const CACHE_NAME = 'my-tools-v5';
 
-// Install: cache core assets
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(ASSETS_TO_CACHE))
-      .then(() => self.skipWaiting())
-  );
+  self.skipWaiting();
 });
 
-// Activate: clean up old caches
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => 
-      Promise.all(
-        keys.filter(key => key !== CACHE_NAME)
-            .map(key => caches.delete(key))
-      )
+      Promise.all(keys.map(key => caches.delete(key)))
     ).then(() => self.clients.claim())
   );
 });
 
-// Fetch: serve from cache, fallback to network
 self.addEventListener('fetch', event => {
+  // Only handle requests to our site
+  if (!event.request.url.startsWith('https://rmmarco.github.io/my-tools/')) {
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request)
-      .then(cached => {
-        if (cached) {
-          return cached;
+    fetch(event.request)
+      .then(response => {
+        if (response.ok && event.request.method === 'GET') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
-        
-        return fetch(event.request).then(response => {
-          if (!response || response.status !== 200 || event.request.method !== 'GET') {
-            return response;
-          }
-          
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME)
-            .then(cache => cache.put(event.request, responseToCache));
-          
-          return response;
-        });
+        return response;
       })
-      .catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
-      })
+      .catch(() => caches.match(event.request))
   );
 });

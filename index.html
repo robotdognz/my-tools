@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Tools</title>
-  <link rel="manifest" href="./manifest.json">
+  <link rel="manifest" href="/my-tools/manifest.json">
   <meta name="theme-color" content="#7c3aed">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="apple-touch-icon" href="/my-tools/icon-192.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @media (display-mode: standalone) {
@@ -22,24 +22,15 @@
     <h1 class="text-2xl font-bold text-gray-800 mb-2">My Tools</h1>
     <p class="text-gray-500 mb-6">A collection of useful utilities</p>
     
-    <!-- Install prompt (hidden when running as PWA) -->
     <div class="install-prompt mb-6 p-4 bg-violet-100 rounded-xl text-sm text-violet-800">
       <strong>Tip:</strong> Add this to your home screen for offline access and a better experience.
     </div>
 
     <div class="space-y-3" id="tool-list">
-      <a href="tools/preference-sorter.html" class="block p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
+      <a href="/my-tools/tools/preference-sorter.html" class="block p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
         <div class="font-semibold text-gray-800">Preference Sorter</div>
         <div class="text-sm text-gray-500">Rank options through pairwise comparisons</div>
       </a>
-      
-      <!-- Add more tools here -->
-      <!--
-      <a href="tools/another-tool.html" class="block p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
-        <div class="font-semibold text-gray-800">Another Tool</div>
-        <div class="text-sm text-gray-500">Description of what it does</div>
-      </a>
-      -->
     </div>
 
     <p class="text-center text-gray-400 text-xs mt-8">
@@ -48,11 +39,10 @@
   </div>
 
   <script>
-    // Register service worker for offline support
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js')
-        .then((reg) => console.log('Service Worker registered', reg.scope))
-        .catch(err => console.log('Service Worker registration failed:', err));
+      navigator.serviceWorker.register('/my-tools/sw.js')
+        .then((reg) => console.log('SW registered', reg.scope))
+        .catch(err => console.log('SW failed:', err));
     }
   </script>
 </body>
