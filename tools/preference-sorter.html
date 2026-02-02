@@ -12,6 +12,8 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
+    html, body, #root { height: 100%; margin: 0; overflow: hidden; }
+    .allow-scroll { overflow: auto !important; }
   </style>
 </head>
 <body>
@@ -68,12 +70,16 @@ function NetworkGraph({ options, comparisonsMade, scores, compact = false, showK
   const handleMouseDown = (e, nodeId) => {
     if (!draggable) return;
     e.preventDefault();
+    e.stopPropagation();
     setDraggedNode(nodeId);
     setIsPaused(true);
   };
 
   const handleMouseMove = useCallback((e) => {
     if (!draggedNode || !svgRef.current) return;
+    
+    // Prevent scrolling while dragging
+    e.preventDefault();
     
     const svg = svgRef.current;
     const rect = svg.getBoundingClientRect();
@@ -83,8 +89,12 @@ function NetworkGraph({ options, comparisonsMade, scores, compact = false, showK
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
+    // Clamp to SVG bounds
+    const clampedClientX = Math.max(rect.left, Math.min(rect.right, clientX));
+    const clampedClientY = Math.max(rect.top, Math.min(rect.bottom, clientY));
+    
+    const x = (clampedClientX - rect.left) * scaleX;
+    const y = (clampedClientY - rect.top) * scaleY;
     
     setNodes(prev => prev.map(n => 
       n.id === draggedNode 
@@ -102,14 +112,15 @@ function NetworkGraph({ options, comparisonsMade, scores, compact = false, showK
 
   useEffect(() => {
     if (draggable) {
+      const opts = { passive: false };
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
-      window.addEventListener('touchmove', handleMouseMove);
+      window.addEventListener('touchmove', handleMouseMove, opts);
       window.addEventListener('touchend', handleMouseUp);
       return () => {
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('mouseup', handleMouseUp);
-        window.removeEventListener('touchmove', handleMouseMove);
+        window.removeEventListener('touchmove', handleMouseMove, opts);
         window.removeEventListener('touchend', handleMouseUp);
       };
     }
@@ -252,7 +263,7 @@ function NetworkGraph({ options, comparisonsMade, scores, compact = false, showK
         ref={svgRef}
         viewBox={`0 0 ${width} ${height}`} 
         className={`${(compact || showKey) ? 'w-2/3' : 'w-full'} ${compact ? 'h-40' : 'h-64'} ${draggable ? 'cursor-grab' : ''}`}
-        style={draggedNode ? { cursor: 'grabbing' } : {}}
+        style={{ touchAction: 'none', ...(draggedNode ? { cursor: 'grabbing' } : {}) }}
       >
         <defs>
           <marker
@@ -947,8 +958,8 @@ function App() {
   const itemCount = inputText.split('\n').filter(s => s.trim().length > 0).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 to-indigo-100 p-4 flex items-center justify-center">
-      <div className="w-full max-w-xl">
+    <div className="h-full bg-gradient-to-br from-violet-50 to-indigo-100 p-4 flex items-center justify-center overflow-auto">
+      <div className="w-full max-w-xl my-auto">
         
         {stage === 'input' && (
           <div className="bg-white rounded-2xl shadow-xl p-6">
