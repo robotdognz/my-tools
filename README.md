@@ -5,6 +5,7 @@ A personal collection of useful web tools that work offline as a Progressive Web
 ## 🚀 Use It
 
 **[Open My Tools](https://rmmarco.github.io/my-tools/)**
+
 To see if there are any changes that haven't gone live yet, you can check here [Actions](https://github.com/rmmarco/my-tools/actions)
 
 ### Install on Your Phone
