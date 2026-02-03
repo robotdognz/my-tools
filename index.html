@@ -11,11 +11,15 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="/my-tools/icon-192.png">
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    @media (display-mode: standalone) {
-      .install-prompt { display: none; }
-    }
-  </style>
+  <script>
+    // Hide install prompt only when truly running as installed app
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+        var prompt = document.querySelector('.install-prompt');
+        if (prompt) prompt.style.display = 'none';
+      }
+    });
+  </script>
 </head>
 <body class="bg-gradient-to-br from-violet-50 to-indigo-100 min-h-screen p-6">
   <div class="max-w-md mx-auto">
