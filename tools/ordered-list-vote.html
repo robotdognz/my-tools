@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Ordered List Vote</title>
+  <meta name="theme-color" content="#ea580c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    html, body, #root { height: 100%; margin: 0; overflow: hidden; }
+    .allow-scroll { overflow: auto !important; }
+    .drag-ghost { opacity: 0.5; }
+    .drag-over { border-color: #ea580c !important; background-color: #fff7ed !important; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useCallback, useRef, useEffect, useMemo } = React;
+
+// Draggable list component
+function DraggableList({ items, onReorder }) {
+  const [draggedIdx, setDraggedIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
+  const dragNode = useRef(null);
+
+  const handleDragStart = (e, idx) => {
+    dragNode.current = e.target;
+    setDraggedIdx(idx);
+    setTimeout(() => {
+      if (dragNode.current) dragNode.current.classList.add('drag-ghost');
+    }, 0);
+  };
+
+  const handleDragEnd = () => {
+    if (dragNode.current) dragNode.current.classList.remove('drag-ghost');
+    dragNode.current = null;
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  };
+
+  const handleDragOver = (e, idx) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === idx) return;
+    setDragOverIdx(idx);
+  };
+
+  const handleDrop = (e, idx) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === idx) return;
+
+    const newItems = [...items];
+    const [dragged] = newItems.splice(draggedIdx, 1);
+    newItems.splice(idx, 0, dragged);
+    onReorder(newItems);
+
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  };
+
+  // Touch handling for mobile
+  const touchStartY = useRef(null);
+  const touchCurrentIdx = useRef(null);
+  const listRef = useRef(null);
+
+  const handleTouchStart = (e, idx) => {
+    touchStartY.current = e.touches[0].clientY;
+    touchCurrentIdx.current = idx;
+    setDraggedIdx(idx);
+  };
+
+  const handleTouchMove = (e) => {
+    if (draggedIdx === null || !listRef.current) return;
+    e.preventDefault();
+
+    const touch = e.touches[0];
+    const elements = listRef.current.querySelectorAll('[data-draggable]');
+
+    for (let i = 0; i < elements.length; i++) {
+      const rect = elements[i].getBoundingClientRect();
+      if (touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+        if (i !== dragOverIdx) setDragOverIdx(i);
+        break;
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (draggedIdx !== null && dragOverIdx !== null && draggedIdx !== dragOverIdx) {
+      const newItems = [...items];
+      const [dragged] = newItems.splice(draggedIdx, 1);
+      newItems.splice(dragOverIdx, 0, dragged);
+      onReorder(newItems);
+    }
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+    touchStartY.current = null;
+    touchCurrentIdx.current = null;
+  };
+
+  return (
+    <div
+      ref={listRef}
+      className="space-y-2"
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {items.map((item, idx) => (
+        <div
+          key={item}
+          data-draggable
+          draggable
+          onDragStart={(e) => handleDragStart(e, idx)}
+          onDragEnd={handleDragEnd}
+          onDragOver={(e) => handleDragOver(e, idx)}
+          onDrop={(e) => handleDrop(e, idx)}
+          onTouchStart={(e) => handleTouchStart(e, idx)}
+          className={`flex items-center gap-3 p-4 bg-white border-2 rounded-xl cursor-grab active:cursor-grabbing transition-all select-none ${
+            draggedIdx === idx ? 'opacity-50 scale-95' : ''
+          } ${
+            dragOverIdx === idx && draggedIdx !== idx ? 'border-orange-500 bg-orange-50' : 'border-gray-200'
+          }`}
+        >
+          <div className="flex flex-col gap-0.5 text-gray-400">
+            <div className="w-4 h-0.5 bg-current rounded"></div>
+            <div className="w-4 h-0.5 bg-current rounded"></div>
+            <div className="w-4 h-0.5 bg-current rounded"></div>
+          </div>
+          <span className="w-8 h-8 flex items-center justify-center bg-orange-100 text-orange-700 rounded-full font-bold text-sm">
+            {idx + 1}
+          </span>
+          <span className="flex-1 font-medium text-gray-800">{item}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Results visualization
+function RankingResults({ choices, votes, voters }) {
+  const [activeTab, setActiveTab] = useState('ranking');
+
+  // Calculate Borda count and average ranks
+  const results = useMemo(() => {
+    const n = choices.length;
+    const scores = {};
+    const ranks = {};
+
+    choices.forEach(choice => {
+      scores[choice] = 0;
+      ranks[choice] = [];
+    });
+
+    votes.forEach(vote => {
+      vote.order.forEach((choice, idx) => {
+        // Borda: n-1 points for 1st, n-2 for 2nd, etc.
+        scores[choice] += (n - 1 - idx);
+        ranks[choice].push(idx + 1);
+      });
+    });
+
+    const maxScore = (n - 1) * votes.length;
+
+    return choices.map(choice => ({
+      choice,
+      score: scores[choice],
+      maxScore,
+      avgRank: ranks[choice].reduce((a, b) => a + b, 0) / ranks[choice].length,
+      ranks: ranks[choice],
+      minRank: Math.min(...ranks[choice]),
+      maxRank: Math.max(...ranks[choice]),
+      variance: calculateVariance(ranks[choice])
+    })).sort((a, b) => b.score - a.score);
+  }, [choices, votes]);
+
+  function calculateVariance(arr) {
+    const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+    return arr.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / arr.length;
+  }
+
+  // Find consensus and controversial items
+  const mostConsensus = [...results].sort((a, b) => a.variance - b.variance)[0];
+  const mostControversial = [...results].sort((a, b) => b.variance - a.variance)[0];
+
+  const tabs = [
+    { id: 'ranking', label: 'Ranking' },
+    { id: 'breakdown', label: 'Breakdown' },
+    { id: 'voters', label: 'By Voter' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all ${
+              activeTab === tab.id
+                ? 'bg-white text-orange-700 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'ranking' && (
+        <div className="space-y-3">
+          {results.map((result, idx) => {
+            const percentage = (result.score / result.maxScore) * 100;
+            return (
+              <div key={result.choice} className="flex items-center gap-3">
+                <div className={`w-10 h-10 flex items-center justify-center rounded-full text-sm font-bold ${
+                  idx === 0 ? 'bg-yellow-400 text-yellow-900' :
+                  idx === 1 ? 'bg-gray-300 text-gray-700' :
+                  idx === 2 ? 'bg-orange-300 text-orange-900' :
+                  'bg-gray-200 text-gray-600'
+                }`}>
+                  {idx + 1}
+                </div>
+                <div className="flex-1">
+                  <div className="flex justify-between mb-1">
+                    <span className="font-medium text-gray-800 truncate" title={result.choice}>
+                      {result.choice}
+                    </span>
+                    <span className="text-sm text-gray-500">
+                      {result.score} pts (avg #{result.avgRank.toFixed(1)})
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-500 ${
+                        idx === 0 ? 'bg-yellow-400' :
+                        idx === 1 ? 'bg-gray-400' :
+                        idx === 2 ? 'bg-orange-400' :
+                        'bg-orange-300'
+                      }`}
+                      style={{ width: `${Math.max(percentage, 3)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <div className="bg-green-50 rounded-xl p-3">
+              <p className="text-xs text-green-600 font-medium mb-1">Most Agreement</p>
+              <p className="font-semibold text-green-800 truncate">{mostConsensus.choice}</p>
+              <p className="text-xs text-green-600">Low variance in rankings</p>
+            </div>
+            <div className="bg-amber-50 rounded-xl p-3">
+              <p className="text-xs text-amber-600 font-medium mb-1">Most Debated</p>
+              <p className="font-semibold text-amber-800 truncate">{mostControversial.choice}</p>
+              <p className="text-xs text-amber-600">High variance in rankings</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'breakdown' && (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Distribution of rankings for each choice
+          </p>
+          {results.map((result) => (
+            <div key={result.choice} className="bg-gray-50 rounded-xl p-3">
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-medium text-gray-800">{result.choice}</span>
+                <span className="text-xs text-gray-500">
+                  Range: #{result.minRank} - #{result.maxRank}
+                </span>
+              </div>
+              <div className="flex gap-1">
+                {choices.map((_, rankIdx) => {
+                  const count = result.ranks.filter(r => r === rankIdx + 1).length;
+                  const pct = (count / votes.length) * 100;
+                  return (
+                    <div key={rankIdx} className="flex-1 text-center">
+                      <div className="h-16 flex items-end justify-center">
+                        <div
+                          className="w-full bg-orange-400 rounded-t transition-all"
+                          style={{ height: `${pct}%`, minHeight: count > 0 ? '4px' : '0' }}
+                        />
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">#{rankIdx + 1}</div>
+                      <div className="text-xs text-gray-400">{count}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === 'voters' && (
+        <div className="space-y-3">
+          {votes.map((vote, idx) => (
+            <div key={idx} className="bg-gray-50 rounded-xl p-3">
+              <div className="font-medium text-gray-800 mb-2">{vote.voter}</div>
+              <div className="flex flex-wrap gap-1">
+                {vote.order.map((choice, rank) => (
+                  <span
+                    key={choice}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-white rounded text-xs"
+                  >
+                    <span className="text-orange-600 font-bold">{rank + 1}.</span>
+                    <span className="text-gray-700">{choice}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// localStorage helpers
+const STORAGE_KEY = 'ordered-list-vote-history';
+
+function loadHistory() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+}
+
+function saveToHistory(choices, voters) {
+  const history = loadHistory();
+  const entry = {
+    id: Date.now(),
+    choices,
+    voters,
+    date: new Date().toLocaleDateString(),
+    choicesPreview: choices.slice(0, 3).join(', ') + (choices.length > 3 ? '...' : ''),
+    votersPreview: voters.slice(0, 2).join(', ') + (voters.length > 2 ? '...' : '')
+  };
+  // Keep max 10 entries, avoid duplicates
+  const isDuplicate = history.some(h =>
+    JSON.stringify(h.choices) === JSON.stringify(choices) &&
+    JSON.stringify(h.voters) === JSON.stringify(voters)
+  );
+  if (!isDuplicate) {
+    history.unshift(entry);
+    if (history.length > 10) history.pop();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  }
+}
+
+function deleteFromHistory(id) {
+  const history = loadHistory().filter(h => h.id !== id);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
+
+function App() {
+  const [stage, setStage] = useState('setup'); // setup, voting, results
+  const [choices, setChoices] = useState([]);
+  const [voters, setVoters] = useState([]);
+  const [votes, setVotes] = useState([]);
+  const [currentVoterIdx, setCurrentVoterIdx] = useState(0);
+  const [currentOrder, setCurrentOrder] = useState([]);
+  const [choicesInput, setChoicesInput] = useState('');
+  const [votersInput, setVotersInput] = useState('');
+  const [showHandoff, setShowHandoff] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
+
+  const loadFromHistory = (entry) => {
+    setChoicesInput(entry.choices.join('\n'));
+    setVotersInput(entry.voters.join('\n'));
+    setShowHistory(false);
+  };
+
+  const handleDeleteHistory = (id, e) => {
+    e.stopPropagation();
+    deleteFromHistory(id);
+    setHistory(loadHistory());
+  };
+
+  const handleSetupSubmit = () => {
+    const choiceList = choicesInput.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    const voterList = votersInput.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+
+    if (choiceList.length < 2) {
+      alert('Please enter at least 2 choices');
+      return;
+    }
+    if (voterList.length < 1) {
+      alert('Please enter at least 1 voter name');
+      return;
+    }
+
+    // Save to history
+    saveToHistory(choiceList, voterList);
+    setHistory(loadHistory());
+
+    setChoices(choiceList);
+    setVoters(voterList);
+    setVotes([]);
+    setCurrentVoterIdx(0);
+    setCurrentOrder([...choiceList]); // Start with original order
+    setShowHandoff(true);
+  };
+
+  const startVoting = () => {
+    setShowHandoff(false);
+    setStage('voting');
+  };
+
+  const handleVoteSubmit = () => {
+    const newVotes = [...votes, {
+      voter: voters[currentVoterIdx],
+      order: [...currentOrder]
+    }];
+    setVotes(newVotes);
+
+    if (currentVoterIdx + 1 < voters.length) {
+      setCurrentVoterIdx(currentVoterIdx + 1);
+      setCurrentOrder([...choices]); // Reset order for next voter
+      setShowHandoff(true);
+      setStage('handoff');
+    } else {
+      setStage('results');
+    }
+  };
+
+  const continueToNextVoter = () => {
+    setShowHandoff(false);
+    setStage('voting');
+  };
+
+  const reset = () => {
+    setStage('setup');
+    setChoices([]);
+    setVoters([]);
+    setVotes([]);
+    setCurrentVoterIdx(0);
+    setCurrentOrder([]);
+    setChoicesInput('');
+    setVotersInput('');
+    setShowHandoff(false);
+  };
+
+  const shuffleOrder = () => {
+    const shuffled = [...currentOrder];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    setCurrentOrder(shuffled);
+  };
+
+  return (
+    <div className="h-full bg-gradient-to-br from-orange-50 to-amber-100 p-4 flex items-center justify-center overflow-auto">
+      <a href="/my-tools/" className="absolute top-4 left-4 p-2 bg-white/80 hover:bg-white rounded-full shadow-sm transition-colors">
+          <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+        </a>
+        <div className="w-full max-w-xl my-auto">
+
+        {stage === 'setup' && !showHandoff && (
+          <div className="bg-white rounded-2xl shadow-xl p-6">
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Ordered List Vote</h1>
+            <p className="text-gray-500 mb-4 text-sm">
+              Collect everyone's rankings and find the group consensus.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Choices to rank (one per line)
+                </label>
+                <textarea
+                  value={choicesInput}
+                  onChange={(e) => setChoicesInput(e.target.value)}
+                  placeholder={"Italian restaurant\nThai restaurant\nMexican restaurant\nIndian restaurant"}
+                  className="w-full h-32 p-4 border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Voter names (one per line)
+                </label>
+                <textarea
+                  value={votersInput}
+                  onChange={(e) => setVotersInput(e.target.value)}
+                  placeholder={"Alice\nBob\nCharlie\nDiana"}
+                  className="w-full h-28 p-4 border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
+                />
+              </div>
+
+              {history.length > 0 && (
+                <div>
+                  <button
+                    onClick={() => setShowHistory(!showHistory)}
+                    className="text-sm text-orange-600 hover:text-orange-700 flex items-center gap-1"
+                  >
+                    {showHistory ? 'Hide' : 'Load'} previous sessions ({history.length})
+                    <svg className={`w-4 h-4 transition-transform ${showHistory ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {showHistory && (
+                    <div className="mt-2 space-y-2 max-h-40 overflow-y-auto">
+                      {history.map(entry => (
+                        <div
+                          key={entry.id}
+                          onClick={() => loadFromHistory(entry)}
+                          className="flex items-center justify-between p-2 bg-gray-50 hover:bg-orange-50 rounded-lg cursor-pointer group"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-700 truncate">{entry.choicesPreview}</p>
+                            <p className="text-xs text-gray-400">{entry.choices.length} choices · {entry.voters.length} voters · {entry.date}</p>
+                          </div>
+                          <button
+                            onClick={(e) => handleDeleteHistory(entry.id, e)}
+                            className="ml-2 p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button
+                onClick={handleSetupSubmit}
+                className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-xl transition-colors"
+              >
+                Start Voting
+              </button>
+            </div>
+          </div>
+        )}
+
+        {(stage === 'setup' && showHandoff) && (
+          <div className="bg-white rounded-2xl shadow-xl p-6 text-center">
+            <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-4xl">👋</span>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              Pass to {voters[0]}
+            </h2>
+            <p className="text-gray-500 mb-6">
+              Hand the device to <strong>{voters[0]}</strong> to record their ranking.
+              <br />
+              <span className="text-sm">Voting is private — only tap "Ready" when they have the device.</span>
+            </p>
+            <button
+              onClick={startVoting}
+              className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-xl transition-colors"
+            >
+              I'm {voters[0]} — Ready!
+            </button>
+          </div>
+        )}
+
+        {stage === 'handoff' && (
+          <div className="bg-white rounded-2xl shadow-xl p-6 text-center">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-4xl">✓</span>
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">
+              {voters[currentVoterIdx - 1]}'s vote recorded!
+            </h2>
+            <p className="text-gray-500 mb-6">
+              Pass the device to <strong>{voters[currentVoterIdx]}</strong>
+              <br />
+              <span className="text-sm text-gray-400">
+                {votes.length} of {voters.length} votes collected
+              </span>
+            </p>
+            <button
+              onClick={continueToNextVoter}
+              className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-xl transition-colors"
+            >
+              I'm {voters[currentVoterIdx]} — Ready!
+            </button>
+          </div>
+        )}
+
+        {stage === 'voting' && (
+          <div className="bg-white rounded-2xl shadow-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">
+                  {voters[currentVoterIdx]}'s Turn
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Drag to arrange in your preferred order
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-orange-600 font-medium">
+                  {currentVoterIdx + 1} of {voters.length}
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-orange-500 h-2 rounded-full transition-all"
+                  style={{ width: `${((currentVoterIdx) / voters.length) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <DraggableList items={currentOrder} onReorder={setCurrentOrder} />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={shuffleOrder}
+                className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors"
+              >
+                Shuffle
+              </button>
+              <button
+                onClick={handleVoteSubmit}
+                className="flex-1 py-3 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-xl transition-colors"
+              >
+                Submit My Ranking
+              </button>
+            </div>
+          </div>
+        )}
+
+        {stage === 'results' && (
+          <div className="bg-white rounded-2xl shadow-xl p-6 overflow-auto max-h-[90vh]">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Results</h2>
+            <p className="text-gray-500 mb-4 text-sm">
+              Based on {votes.length} votes using Borda count method
+            </p>
+
+            <RankingResults choices={choices} votes={votes} voters={voters} />
+
+            <button
+              onClick={reset}
+              className="w-full mt-6 py-3 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-xl transition-colors"
+            >
+              Start New Vote
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
