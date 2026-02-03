@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Preference Sorter</title>
+  <title>Choice Ranker</title>
   <meta name="theme-color" content="#7c3aed">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -562,7 +562,7 @@ function ResultsView({ comparisonsMade, mode, scores, options, reset }) {
 }
 
 // localStorage helpers
-const STORAGE_KEY = 'preference-sorter-history';
+const STORAGE_KEY = 'choice-ranker-history';
 
 function loadHistory() {
   try {
@@ -1021,7 +1021,7 @@ function App() {
         
         {stage === 'input' && (
           <div className="bg-white rounded-2xl shadow-xl p-6">
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Preference Sorter</h1>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Choice Ranker</h1>
             <p className="text-gray-500 mb-4 text-sm">Enter your options below, one per line.</p>
             
             <textarea
