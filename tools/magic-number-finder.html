@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Magic Number Finder</title>
+  <meta name="theme-color" content="#7c3aed">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    html, body, #root { height: 100%; margin: 0; overflow: hidden; }
+    .allow-scroll { overflow: auto !important; }
+
+    @keyframes mystical-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(147, 51, 234, 0.5); }
+      50% { box-shadow: 0 0 40px rgba(147, 51, 234, 0.8), 0 0 60px rgba(236, 72, 153, 0.4); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    .mystical-card {
+      animation: mystical-glow 3s ease-in-out infinite;
+    }
+
+    .floating {
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .stars {
+      background-image:
+        radial-gradient(2px 2px at 20px 30px, white, transparent),
+        radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
+        radial-gradient(1px 1px at 90px 40px, white, transparent),
+        radial-gradient(2px 2px at 130px 80px, rgba(255,255,255,0.6), transparent),
+        radial-gradient(1px 1px at 160px 20px, white, transparent);
+      background-repeat: repeat;
+      background-size: 200px 100px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+// localStorage helpers
+const STORAGE_KEY = 'magic-number-finder-history';
+
+function loadHistory() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+}
+
+function saveToHistory(numbers) {
+  const history = loadHistory();
+  const entry = {
+    id: Date.now(),
+    numbers,
+    date: new Date().toLocaleDateString(),
+    preview: numbers.slice(0, 4).join(', ') + (numbers.length > 4 ? '...' : '')
+  };
+  const isDuplicate = history.some(h => JSON.stringify(h.numbers) === JSON.stringify(numbers));
+  if (!isDuplicate) {
+    history.unshift(entry);
+    if (history.length > 10) history.pop();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  }
+}
+
+function deleteFromHistory(id) {
+  const history = loadHistory().filter(h => h.id !== id);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
+
+// The sacred constants and cosmic measurements
+const MAGIC_NUMBERS = [
+  // Mathematical constants
+  { value: Math.PI, name: 'Pi', symbol: 'π', category: 'mathematical', description: 'The ratio of a circle\'s circumference to its diameter' },
+  { value: (1 + Math.sqrt(5)) / 2, name: 'Golden Ratio', symbol: 'φ', category: 'mathematical', description: 'The divine proportion found throughout nature' },
+  { value: Math.E, name: 'Euler\'s Number', symbol: 'e', category: 'mathematical', description: 'The base of natural logarithms' },
+  { value: Math.sqrt(2), name: 'Pythagoras\' Constant', symbol: '√2', category: 'mathematical', description: 'The diagonal of a unit square' },
+  { value: Math.sqrt(3), name: 'Theodorus\' Constant', symbol: '√3', category: 'mathematical', description: 'Sacred to ancient geometers' },
+  { value: Math.sqrt(5), name: 'Root of Five', symbol: '√5', category: 'mathematical', description: 'Hidden within the Golden Ratio' },
+
+  // Astronomical measurements
+  { value: 299792458, name: 'Speed of Light', symbol: 'c', category: 'cosmic', description: 'meters per second - the universe\'s speed limit' },
+  { value: 149597870.7, name: 'Earth-Sun Distance', symbol: 'AU', category: 'cosmic', description: 'kilometers - one Astronomical Unit' },
+  { value: 384400, name: 'Earth-Moon Distance', symbol: '🌙', category: 'cosmic', description: 'kilometers average' },
+  { value: 6371, name: 'Earth\'s Radius', symbol: '🌍', category: 'cosmic', description: 'kilometers' },
+  { value: 1737, name: 'Moon\'s Radius', symbol: '🌑', category: 'cosmic', description: 'kilometers' },
+  { value: 696340, name: 'Sun\'s Radius', symbol: '☀️', category: 'cosmic', description: 'kilometers' },
+  { value: 365.25, name: 'Days in Year', symbol: '📅', category: 'cosmic', description: 'Earth\'s orbital period' },
+  { value: 27.3, name: 'Lunar Cycle', symbol: '🌕', category: 'cosmic', description: 'days - sidereal month' },
+  { value: 29.5, name: 'Synodic Month', symbol: '🌓', category: 'cosmic', description: 'days between full moons' },
+
+  // Sacred architecture
+  { value: 146.6, name: 'Great Pyramid Height', symbol: '△', category: 'ancient', description: 'meters - original height' },
+  { value: 230.4, name: 'Great Pyramid Base', symbol: '▢', category: 'ancient', description: 'meters per side' },
+  { value: 51.84, name: 'Pyramid Angle', symbol: '∠', category: 'ancient', description: 'degrees - slope angle' },
+  { value: 2.72, name: 'Cubit', symbol: '📏', category: 'ancient', description: 'Royal Egyptian cubit in feet' },
+
+  // Sacred numbers
+  { value: 108, name: 'Sacred 108', symbol: '🕉️', category: 'mystical', description: 'Holy number in Hinduism & Buddhism' },
+  { value: 432, name: 'Cosmic Frequency', symbol: '🎵', category: 'mystical', description: 'Hz - the "natural" tuning frequency' },
+  { value: 144, name: 'Gross/Square of 12', symbol: '⬡', category: 'mystical', description: '12×12 - sacred in many traditions' },
+  { value: 666, name: 'Number of the Beast', symbol: '👹', category: 'mystical', description: 'Biblical number of significance' },
+  { value: 888, name: 'Jesus Number', symbol: '✝️', category: 'mystical', description: 'Greek gematria value of "Jesus"' },
+  { value: 137, name: 'Fine Structure', symbol: 'α', category: 'mystical', description: '1/α - the "magic number" of physics' },
+  { value: 7, name: 'Lucky Seven', symbol: '7️⃣', category: 'mystical', description: 'Days of creation, chakras, deadly sins' },
+  { value: 12, name: 'Cosmic Twelve', symbol: '🔯', category: 'mystical', description: 'Zodiac signs, apostles, months' },
+  { value: 13, name: 'Sacred Thirteen', symbol: '🌀', category: 'mystical', description: 'Lunar months, Mayan sacred number' },
+  { value: 40, name: 'Biblical Forty', symbol: '📜', category: 'mystical', description: 'Days of flood, years in desert' },
+  { value: 72, name: 'Divine Names', symbol: '✡️', category: 'mystical', description: 'Names of God in Kabbalah' },
+  { value: 360, name: 'Full Circle', symbol: '⭕', category: 'mystical', description: 'Degrees - Babylonian sacred number' },
+
+  // Physical constants
+  { value: 9.81, name: 'Earth Gravity', symbol: 'g', category: 'physics', description: 'm/s² - gravitational acceleration' },
+  { value: 6.674, name: 'Gravitational Constant', symbol: 'G', category: 'physics', description: '×10⁻¹¹ - Newton\'s constant' },
+  { value: 1.618033988749, name: 'Phi Precise', symbol: 'Φ', category: 'mathematical', description: 'Golden ratio to 12 decimals' },
+];
+
+// Key constants to use in equations
+const PI = Math.PI;
+const PHI = (1 + Math.sqrt(5)) / 2;
+const E = Math.E;
+const SQRT2 = Math.sqrt(2);
+const SQRT3 = Math.sqrt(3);
+const SQRT5 = Math.sqrt(5);
+
+const EQUATION_CONSTANTS = [
+  { value: PI, symbol: 'π', name: 'Pi' },
+  { value: PHI, symbol: 'φ', name: 'Golden Ratio' },
+  { value: E, symbol: 'e', name: "Euler's Number" },
+  { value: SQRT2, symbol: '√2', name: 'Root 2' },
+  { value: SQRT3, symbol: '√3', name: 'Root 3' },
+  { value: 7, symbol: '7', name: 'Sacred Seven' },
+  { value: 12, symbol: '12', name: 'Cosmic Twelve' },
+  { value: 137, symbol: '137', name: 'Fine Structure' },
+  { value: 108, symbol: '108', name: 'Sacred 108' },
+  { value: 360, symbol: '360', name: 'Full Circle' },
+  { value: 432, symbol: '432', name: 'Cosmic Frequency' },
+];
+
+function findMagic(numbers) {
+  const results = [];
+  const tolerance = 0.009; // ~1% tolerance
+
+  // Helper to check if a value is close to an integer or simple fraction
+  function isNiceNumber(val) {
+    if (!isFinite(val) || isNaN(val) || val === 0) return null;
+
+    // Check for integers
+    if (Math.abs(val - Math.round(val)) < 0.0001 && Math.abs(val) < 10000) {
+      return { value: Math.round(val), display: String(Math.round(val)), type: 'integer' };
+    }
+
+    // Check against magic numbers
+    for (const magic of MAGIC_NUMBERS) {
+      const error = Math.abs(val / magic.value - 1);
+      if (error < tolerance) {
+        return { value: magic.value, display: magic.symbol, name: magic.name, type: 'magic', error, magic };
+      }
+      // Check small multiples
+      for (const mult of [2, 3, 10, 100, 1000]) {
+        const err2 = Math.abs(val / (magic.value * mult) - 1);
+        if (err2 < tolerance) {
+          return { value: magic.value * mult, display: `${mult}${magic.symbol}`, name: `${mult}× ${magic.name}`, type: 'magic', error: err2, magic };
+        }
+      }
+    }
+    return null;
+  }
+
+  // Generate equations between numbers using constants
+  function tryEquation(equation, result, numCount, description) {
+    if (!isFinite(result) || isNaN(result)) return;
+    const nice = isNiceNumber(result);
+    if (nice && nice.type === 'magic') {
+      results.push({
+        equation,
+        result: nice.display,
+        resultName: nice.name,
+        accuracy: ((1 - nice.error) * 100).toFixed(2),
+        description,
+        numbersInvolved: numCount,
+        magic: nice.magic,
+        mysteryLevel: numCount >= 4 ? 'ULTIMATE CONVERGENCE' :
+                      numCount >= 3 ? 'TRANSCENDENT' :
+                      nice.error < 0.001 ? 'INCREDIBLE' : 'DISCOVERED'
+      });
+    }
+  }
+
+  const n = numbers.length;
+
+  // Two-number relationships with constants
+  if (n >= 2) {
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        if (i === j) continue;
+        const a = numbers[i], b = numbers[j];
+        if (a === 0 || b === 0) continue;
+
+        // Direct relationships
+        tryEquation(`${a} ÷ ${b}`, a / b, 2, 'The ratio reveals a sacred proportion');
+        tryEquation(`${a} × ${b}`, a * b, 2, 'Their product unveils cosmic significance');
+        tryEquation(`${a} + ${b}`, a + b, 2, 'United, they form a sacred sum');
+        tryEquation(`${a} − ${b}`, a - b, 2, 'Their difference echoes through the cosmos');
+
+        // With constants
+        for (const c of EQUATION_CONSTANTS) {
+          tryEquation(`(${a} + ${b}) ÷ ${c.symbol}`, (a + b) / c.value, 2, `Divided by ${c.name}, the sum transforms`);
+          tryEquation(`(${a} + ${b}) × ${c.symbol}`, (a + b) * c.value, 2, `Multiplied by ${c.name}, harmony emerges`);
+          tryEquation(`(${a} × ${b}) ÷ ${c.symbol}`, (a * b) / c.value, 2, `The product, scaled by ${c.name}`);
+          tryEquation(`(${a} − ${b}) × ${c.symbol}`, (a - b) * c.value, 2, `Their difference, amplified by ${c.name}`);
+          tryEquation(`${a} ÷ ${b} × ${c.symbol}`, (a / b) * c.value, 2, `The ratio, blessed by ${c.name}`);
+          tryEquation(`(${a} + ${b}) ÷ ${c.symbol}²`, (a + b) / (c.value * c.value), 2, `Divided by ${c.name} squared`);
+          tryEquation(`√(${a} × ${b}) ÷ ${c.symbol}`, Math.sqrt(a * b) / c.value, 2, `Their geometric mean divided by ${c.name}`);
+          tryEquation(`(${a}² + ${b}²) ÷ ${c.symbol}`, (a*a + b*b) / c.value, 2, `Sum of squares over ${c.name}`);
+          tryEquation(`(${a} × ${c.symbol}) ÷ ${b}`, (a * c.value) / b, 2, `${c.name} mediates between them`);
+          tryEquation(`(${a} + ${c.symbol}) ÷ ${b}`, (a + c.value) / b, 2, `${c.name} joins one, divided by the other`);
+        }
+
+        // Double constants
+        tryEquation(`(${a} ÷ ${b}) × π × φ`, (a / b) * PI * PHI, 2, 'Pi and Phi amplify their ratio');
+        tryEquation(`(${a} + ${b}) ÷ (π × φ)`, (a + b) / (PI * PHI), 2, 'The sacred product divides their sum');
+        tryEquation(`(${a} × ${b}) ÷ (π × e)`, (a * b) / (PI * E), 2, 'Pi and e unlock their product');
+        tryEquation(`√(${a}² + ${b}²) ÷ π`, Math.sqrt(a*a + b*b) / PI, 2, 'Pythagorean distance over Pi');
+      }
+    }
+  }
+
+  // Three-number relationships
+  if (n >= 3) {
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        for (let k = j + 1; k < n; k++) {
+          const a = numbers[i], b = numbers[j], c = numbers[k];
+          if (a === 0 || b === 0 || c === 0) continue;
+
+          tryEquation(`${a} + ${b} + ${c}`, a + b + c, 3, 'The trinity combines');
+          tryEquation(`${a} × ${b} × ${c}`, a * b * c, 3, 'Triple product reveals truth');
+          tryEquation(`(${a} + ${b}) × ${c}`, (a + b) * c, 3, 'Sum times third');
+          tryEquation(`(${a} × ${b}) + ${c}`, (a * b) + c, 3, 'Product plus third');
+          tryEquation(`(${a} + ${b}) ÷ ${c}`, (a + b) / c, 3, 'Sum over third reveals proportion');
+          tryEquation(`(${a} × ${b}) ÷ ${c}`, (a * b) / c, 3, 'Product over third');
+          tryEquation(`${a} × ${b} ÷ ${c}`, a * b / c, 3, 'Chained division');
+          tryEquation(`(${a} − ${b}) × ${c}`, (a - b) * c, 3, 'Difference amplified');
+
+          for (const con of EQUATION_CONSTANTS.slice(0, 5)) {
+            tryEquation(`(${a} + ${b} + ${c}) ÷ ${con.symbol}`, (a + b + c) / con.value, 3, `Trinity divided by ${con.name}`);
+            tryEquation(`(${a} × ${b} × ${c}) ÷ ${con.symbol}`, (a * b * c) / con.value, 3, `Triple product over ${con.name}`);
+            tryEquation(`(${a} + ${b}) × ${c} ÷ ${con.symbol}`, (a + b) * c / con.value, 3, `Combined and scaled by ${con.name}`);
+            tryEquation(`(${a} × ${b} + ${c}) × ${con.symbol}`, (a * b + c) * con.value, 3, `${con.name} amplifies the pattern`);
+            tryEquation(`(${a} × ${b}) ÷ (${c} × ${con.symbol})`, (a * b) / (c * con.value), 3, `Double division with ${con.name}`);
+            tryEquation(`√(${a} × ${b} × ${c}) × ${con.symbol}`, Math.cbrt(a * b * c) * con.value, 3, `Cube root times ${con.name}`);
+            tryEquation(`(${a}×${b} + ${b}×${c} + ${a}×${c}) ÷ ${con.symbol}`, (a*b + b*c + a*c) / con.value, 3, `Symmetric products over ${con.name}`);
+          }
+
+          // Complex equations
+          tryEquation(`(${a} × ${b}) ÷ ${c} × π`, (a * b / c) * PI, 3, 'Pi completes the equation');
+          tryEquation(`(${a} + ${b} × ${c}) ÷ φ`, (a + b * c) / PHI, 3, 'Golden Ratio divides the sum');
+          tryEquation(`√(${a}² + ${b}² + ${c}²)`, Math.sqrt(a*a + b*b + c*c), 3, '3D Pythagorean distance');
+          tryEquation(`(${a} + ${b}) × (${a} + ${c}) ÷ (${b} × ${c})`, (a+b)*(a+c)/(b*c), 3, 'A symmetric dance');
+        }
+      }
+    }
+  }
+
+  // Four-number relationships
+  if (n >= 4) {
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        for (let k = j + 1; k < n; k++) {
+          for (let l = k + 1; l < n; l++) {
+            const a = numbers[i], b = numbers[j], c = numbers[k], d = numbers[l];
+            if (a === 0 || b === 0 || c === 0 || d === 0) continue;
+
+            tryEquation(`${a} + ${b} + ${c} + ${d}`, a + b + c + d, 4, 'The quadrinity unites');
+            tryEquation(`(${a} + ${b}) × (${c} + ${d})`, (a + b) * (c + d), 4, 'Paired sums multiply');
+            tryEquation(`(${a} × ${b}) + (${c} × ${d})`, (a * b) + (c * d), 4, 'Paired products combine');
+            tryEquation(`(${a} × ${b}) ÷ (${c} + ${d})`, (a * b) / (c + d), 4, 'Product over sum');
+            tryEquation(`(${a} + ${b}) ÷ (${c} − ${d})`, (a + b) / (c - d), 4, 'Sum over difference');
+            tryEquation(`(${a} × ${b} × ${c}) ÷ ${d}`, (a * b * c) / d, 4, 'Triple product divided');
+            tryEquation(`(${a} + ${b}) × (${c} + ${d}) ÷ π`, (a+b)*(c+d)/PI, 4, 'Paired product over Pi');
+            tryEquation(`(${a} × ${b}) ÷ (${c} × ${d}) × φ`, (a*b)/(c*d)*PHI, 4, 'Ratio of products times Phi');
+            tryEquation(`(${a} + ${b} + ${c} + ${d}) ÷ φ`, (a + b + c + d) / PHI, 4, 'Total divided by Golden Ratio');
+            tryEquation(`(${a} × ${b} × ${c} × ${d}) ÷ π²`, (a * b * c * d) / (PI * PI), 4, 'Quadruple product over Pi squared');
+            tryEquation(`√(${a}×${b}) + √(${c}×${d})`, Math.sqrt(a*b) + Math.sqrt(c*d), 4, 'Sum of geometric means');
+            tryEquation(`(${a}×${b} − ${c}×${d}) × φ`, (a*b - c*d) * PHI, 4, 'Product difference times Phi');
+          }
+        }
+      }
+    }
+  }
+
+  // All numbers combined (if 3+)
+  if (n >= 3) {
+    const sum = numbers.reduce((a, b) => a + b, 0);
+    const product = numbers.reduce((a, b) => a * b, 1);
+    const sumStr = numbers.join(' + ');
+    const prodStr = numbers.join(' × ');
+
+    tryEquation(`${sumStr}`, sum, n, 'All numbers unite');
+    tryEquation(`${prodStr}`, product, n, 'All numbers multiply');
+    tryEquation(`(${sumStr}) ÷ π`, sum / PI, n, 'Total divided by Pi');
+    tryEquation(`(${sumStr}) ÷ φ`, sum / PHI, n, 'Total divided by Phi');
+    tryEquation(`(${sumStr}) × φ ÷ π`, sum * PHI / PI, n, 'Phi over Pi scales the sum');
+    tryEquation(`(${prodStr}) ÷ e`, product / E, n, "Euler's number divides the product");
+    tryEquation(`√(${sumStr})`, Math.sqrt(sum), n, 'Square root of total');
+    tryEquation(`(${sumStr})² ÷ (${prodStr})`, (sum * sum) / product, n, 'Sum squared over product');
+
+    // Average-based
+    const avg = sum / n;
+    tryEquation(`avg(${numbers.join(', ')}) × ${n}`, avg * n, n, 'Average times count');
+    tryEquation(`avg × π`, avg * PI, n, 'Average times Pi');
+    tryEquation(`avg × φ × e`, avg * PHI * E, n, 'Average times sacred constants');
+  }
+
+  // Sort by numbers involved (descending), then by accuracy
+  const seen = new Set();
+  return results
+    .sort((a, b) => {
+      if (b.numbersInvolved !== a.numbersInvolved) {
+        return b.numbersInvolved - a.numbersInvolved;
+      }
+      return parseFloat(b.accuracy) - parseFloat(a.accuracy);
+    })
+    .filter(r => {
+      const key = `${r.equation}-${r.result}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 40);
+}
+
+const CATEGORY_COLORS = {
+  mathematical: 'from-blue-500 to-cyan-500',
+  cosmic: 'from-purple-500 to-pink-500',
+  ancient: 'from-amber-500 to-orange-500',
+  mystical: 'from-violet-500 to-purple-500',
+  physics: 'from-green-500 to-teal-500',
+  numerology: 'from-pink-500 to-rose-500',
+};
+
+const MYSTERY_COLORS = {
+  'ULTIMATE CONVERGENCE': 'bg-yellow-200 text-yellow-900 border-yellow-400 font-bold',
+  TRANSCENDENT: 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300',
+  INCREDIBLE: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  DISCOVERED: 'bg-purple-100 text-purple-800 border-purple-300',
+  REMARKABLE: 'bg-purple-100 text-purple-800 border-purple-300',
+  INTRIGUING: 'bg-blue-100 text-blue-800 border-blue-300',
+  MYSTICAL: 'bg-pink-100 text-pink-800 border-pink-300',
+  COSMIC: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+  HARMONIOUS: 'bg-green-100 text-green-800 border-green-300',
+  SYNCHRONISTIC: 'bg-cyan-100 text-cyan-800 border-cyan-300',
+};
+
+function App() {
+  const [inputText, setInputText] = useState('');
+  const [results, setResults] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
+
+  const loadFromHistory = (entry) => {
+    setInputText(entry.numbers.join(', '));
+    setShowHistory(false);
+  };
+
+  const handleDeleteHistory = (id, e) => {
+    e.stopPropagation();
+    deleteFromHistory(id);
+    setHistory(loadHistory());
+  };
+
+  const handleSearch = () => {
+    const numbers = inputText
+      .split(/[\s,\n]+/)
+      .map(s => parseFloat(s.trim()))
+      .filter(n => !isNaN(n));
+
+    if (numbers.length === 0) {
+      alert('Please enter at least one number');
+      return;
+    }
+
+    // Save to history
+    saveToHistory(numbers);
+    setHistory(loadHistory());
+
+    setIsSearching(true);
+
+    // Add dramatic delay for effect
+    setTimeout(() => {
+      const found = findMagic(numbers);
+      setResults({ numbers, findings: found });
+      setIsSearching(false);
+    }, 1500);
+  };
+
+  const reset = () => {
+    setResults(null);
+    setInputText('');
+  };
+
+  return (
+    <div className="h-full bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-4 flex items-center justify-center overflow-auto stars">
+      <a href="/my-tools/" className="absolute top-4 left-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors">
+        <svg className="w-5 h-5 text-purple-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      </a>
+      <div className="w-full max-w-xl my-auto">
+
+        {!results && !isSearching && (
+          <div className="bg-slate-900/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border border-purple-500/30">
+            <div className="text-center mb-6">
+              <span className="text-4xl floating inline-block">🔮</span>
+              <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mt-2">
+                Magic Number Finder
+              </h1>
+              <p className="text-purple-300/70 text-sm mt-1">
+                Discover hidden cosmic connections in any number
+              </p>
+            </div>
+
+            <textarea
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder={"Enter numbers to analyze...\n\nExamples:\n1776\n432\n23, 42, 108\n299792458"}
+              className="w-full h-40 p-4 bg-slate-800/50 border border-purple-500/30 rounded-xl text-purple-100 placeholder-purple-400/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
+            />
+
+            <p className="text-purple-400/50 text-xs mt-2 text-center">
+              Separate multiple numbers with spaces, commas, or new lines
+            </p>
+
+            {history.length > 0 && (
+              <div className="mt-3">
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                >
+                  {showHistory ? 'Hide' : 'Load'} previous numbers ({history.length})
+                  <svg className={`w-4 h-4 transition-transform ${showHistory ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showHistory && (
+                  <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
+                    {history.map(entry => (
+                      <div
+                        key={entry.id}
+                        onClick={() => loadFromHistory(entry)}
+                        className="flex items-center justify-between p-2 bg-slate-800/50 hover:bg-purple-900/30 rounded-lg cursor-pointer group border border-purple-500/20"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-purple-200 truncate font-mono">{entry.preview}</p>
+                          <p className="text-xs text-purple-400/50">{entry.numbers.length} numbers · {entry.date}</p>
+                        </div>
+                        <button
+                          onClick={(e) => handleDeleteHistory(entry.id, e)}
+                          className="ml-2 p-1 text-purple-400/50 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={handleSearch}
+              className="w-full mt-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-purple-500/25"
+            >
+              Reveal the Mysteries ✨
+            </button>
+          </div>
+        )}
+
+        {isSearching && (
+          <div className="bg-slate-900/80 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border border-purple-500/30 text-center">
+            <div className="text-6xl mb-4 floating">🌌</div>
+            <p className="text-purple-300 text-lg">Consulting the cosmos...</p>
+            <div className="mt-4 flex justify-center gap-1">
+              {[0, 1, 2].map(i => (
+                <div
+                  key={i}
+                  className="w-3 h-3 bg-purple-500 rounded-full animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {results && (
+          <div className="bg-slate-900/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border border-purple-500/30 max-h-[85vh] overflow-auto">
+            <div className="text-center mb-4">
+              <span className="text-3xl">✨</span>
+              <h2 className="text-xl font-bold text-purple-200 mt-1">Mystical Discoveries</h2>
+              <p className="text-purple-400/70 text-sm">
+                Analyzing: {results.numbers.join(', ')}
+              </p>
+            </div>
+
+            {results.findings.length === 0 ? (
+              <div className="text-center py-8 text-purple-400/70">
+                <span className="text-4xl">🤔</span>
+                <p className="mt-2">The cosmos remains silent on these numbers...</p>
+                <p className="text-sm mt-1">Try different values!</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {results.findings.map((finding, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-xl bg-gradient-to-r ${CATEGORY_COLORS[finding.magic?.category] || 'from-gray-500 to-gray-600'} bg-opacity-10 border border-white/10`}
+                    style={{ background: `linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02))` }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          <span className="text-lg">{finding.magic?.symbol || '✨'}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full border ${MYSTERY_COLORS[finding.mysteryLevel] || 'bg-purple-100 text-purple-800 border-purple-300'}`}>
+                            {finding.mysteryLevel}
+                          </span>
+                          <span className="text-purple-400/60 text-xs">
+                            {finding.numbersInvolved} numbers
+                          </span>
+                        </div>
+                        <p className="text-purple-100 font-mono text-sm bg-slate-800/50 rounded-lg px-3 py-2 overflow-x-auto">
+                          {finding.equation} = <span className="text-yellow-300 font-bold">{finding.result}</span>
+                        </p>
+                        <p className="text-purple-300/80 text-sm mt-2">
+                          → {finding.resultName || finding.result}
+                        </p>
+                        <p className="text-purple-400/50 text-xs mt-1 italic">{finding.description}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-green-400 font-bold text-lg">{finding.accuracy}%</div>
+                        <div className="text-purple-400/50 text-xs">precision</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={reset}
+              className="w-full mt-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-xl transition-all"
+            >
+              Explore More Numbers
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
