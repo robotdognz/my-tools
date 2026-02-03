@@ -577,6 +577,7 @@ function App() {
       const finalPayoffs = [...newPayoffs];
       saveToHistory(actions, states, finalPayoffs);
       setHistory(loadHistory());
+      setCurrentState(0); // Reset for probabilities stage
       setStage('probabilities');
     }
   };
@@ -838,7 +839,8 @@ function App() {
 
             <div className="flex gap-2">
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={payoffInput}
                 onChange={(e) => setPayoffInput(e.target.value)}
                 onKeyPress={(e) => handleKeyPress(e, handlePayoffSubmit)}
