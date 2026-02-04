@@ -250,14 +250,15 @@ function findMagic(numbers) {
     // This happens when numbers are close together and their ratio/sum ≈ 1
     if (intermediateValue !== null) {
       const intAbs = Math.abs(intermediateValue);
-      if (intAbs > 0.8 && intAbs < 1.25) return; // intermediate is ~1, result is trivially the constant
+      if (intAbs > 0.8 && intAbs < 1.25) return;
     }
 
     const nice = isNiceNumber(result);
     if (nice && nice.type === 'magic') {
       // Skip if the result essentially appears in the equation (circular results like "2 × π = 2 × π")
       const resultPattern = nice.display.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      if (new RegExp(`(^|\\s|×|÷|\\()${resultPattern}(\\s|×|÷|\\)|$)`).test(equation)) return;
+      const circularRegex = new RegExp(`(^|\\s|×|÷|\\()${resultPattern}(\\s|×|÷|\\)|$)`);
+      if (circularRegex.test(equation)) return;
 
       results.push({
         equation,
@@ -276,7 +277,8 @@ function findMagic(numbers) {
 
   const n = numbers.length;
 
-  // Single number analysis
+  // Single number analysis - always run for each number
+  // These will be shown in a collapsed section when multi-number results exist
   for (let i = 0; i < n; i++) {
     const a = numbers[i];
     if (a === 0) continue;
@@ -461,7 +463,7 @@ function findMagic(numbers) {
   // Sort by numbers involved (descending), then by accuracy
   const seenEquations = new Set();
   const seenResults = new Set();
-  return results
+  const filtered = results
     .sort((a, b) => {
       if (b.numbersInvolved !== a.numbersInvolved) {
         return b.numbersInvolved - a.numbersInvolved;
@@ -481,8 +483,13 @@ function findMagic(numbers) {
       seenResults.add(resultKey);
 
       return true;
-    })
-    .slice(0, 25);
+    });
+
+  // Split into multi-number (2+) and single-number results
+  const multiNumber = filtered.filter(r => r.numbersInvolved >= 2).slice(0, 20);
+  const singleNumber = filtered.filter(r => r.numbersInvolved === 1).slice(0, 15);
+
+  return { multiNumber, singleNumber };
 }
 
 const CATEGORY_COLORS = {
@@ -507,6 +514,61 @@ const MYSTERY_COLORS = {
   HARMONIOUS: 'bg-green-100 text-green-800 border-green-300',
   SYNCHRONISTIC: 'bg-cyan-100 text-cyan-800 border-cyan-300',
 };
+
+// Reusable component for displaying a finding
+function FindingCard({ finding, compact = false }) {
+  const constants = findConstantsInEquation(finding.equation);
+
+  return (
+    <div
+      className={`${compact ? 'p-2' : 'p-3'} rounded-xl bg-gradient-to-r ${CATEGORY_COLORS[finding.magic?.category] || 'from-gray-500 to-gray-600'} bg-opacity-10 border border-white/10`}
+      style={{ background: `linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02))` }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            <span className={compact ? 'text-base' : 'text-lg'}>{finding.magic?.symbol || '✨'}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full border ${MYSTERY_COLORS[finding.mysteryLevel] || 'bg-purple-100 text-purple-800 border-purple-300'}`}>
+              {finding.mysteryLevel}
+            </span>
+          </div>
+          <p className={`text-purple-100 font-mono ${compact ? 'text-xs' : 'text-sm'} bg-slate-800/50 rounded-lg px-3 py-2 overflow-x-auto`}>
+            {finding.equation} = <span className="text-yellow-300 font-bold">{finding.result}</span>
+          </p>
+
+          {/* Constant explanations - hide in compact mode */}
+          {!compact && constants.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {constants.map((c, i) => (
+                <p key={i} className="text-purple-300/60 text-xs">
+                  <span className="text-purple-200 font-mono">{c.symbol}</span> = {c.explanation}
+                </p>
+              ))}
+            </div>
+          )}
+
+          <p className={`text-purple-300/80 ${compact ? 'text-xs' : 'text-sm'} mt-2`}>
+            → {finding.resultName || finding.result}
+            {finding.magic?.value && (
+              <span className="text-purple-400/60 ml-1">
+                ({finding.magic.value.toLocaleString()})
+              </span>
+            )}
+          </p>
+          {!compact && (
+            <p className="text-purple-400/50 text-xs mt-1 italic">
+              {finding.magic?.description || finding.description}
+            </p>
+          )}
+        </div>
+        <div className="text-right flex-shrink-0">
+          <div className={`text-green-400 font-bold ${compact ? 'text-base' : 'text-lg'}`}>{finding.accuracy}%</div>
+          <div className="text-purple-400/50 text-xs">precision</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   const [inputText, setInputText] = useState('');
@@ -665,67 +727,43 @@ function App() {
               </p>
             </div>
 
-            {results.findings.length === 0 ? (
+            {results.findings.multiNumber.length === 0 && results.findings.singleNumber.length === 0 ? (
               <div className="text-center py-8 text-purple-400/70">
                 <span className="text-4xl">🤔</span>
                 <p className="mt-2">The cosmos remains silent on these numbers...</p>
                 <p className="text-sm mt-1">Try different values!</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {results.findings.map((finding, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-3 rounded-xl bg-gradient-to-r ${CATEGORY_COLORS[finding.magic?.category] || 'from-gray-500 to-gray-600'} bg-opacity-10 border border-white/10`}
-                    style={{ background: `linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02))` }}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-2">
-                          <span className="text-lg">{finding.magic?.symbol || '✨'}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full border ${MYSTERY_COLORS[finding.mysteryLevel] || 'bg-purple-100 text-purple-800 border-purple-300'}`}>
-                            {finding.mysteryLevel}
-                          </span>
-                        </div>
-                        <p className="text-purple-100 font-mono text-sm bg-slate-800/50 rounded-lg px-3 py-2 overflow-x-auto">
-                          {finding.equation} = <span className="text-yellow-300 font-bold">{finding.result}</span>
-                        </p>
-
-                        {/* Constant explanations */}
-                        {(() => {
-                          const constants = findConstantsInEquation(finding.equation);
-                          if (constants.length === 0) return null;
-                          return (
-                            <div className="mt-2 space-y-1">
-                              {constants.map((c, i) => (
-                                <p key={i} className="text-purple-300/60 text-xs">
-                                  <span className="text-purple-200 font-mono">{c.symbol}</span> = {c.explanation}
-                                </p>
-                              ))}
-                            </div>
-                          );
-                        })()}
-
-                        <p className="text-purple-300/80 text-sm mt-2">
-                          → {finding.resultName || finding.result}
-                          {finding.magic?.value && (
-                            <span className="text-purple-400/60 ml-1">
-                              ({finding.magic.value.toLocaleString()})
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-purple-400/50 text-xs mt-1 italic">
-                          {finding.magic?.description || finding.description}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-green-400 font-bold text-lg">{finding.accuracy}%</div>
-                        <div className="text-purple-400/50 text-xs">precision</div>
-                      </div>
-                    </div>
+              <>
+                {/* Multi-number results (prominent) */}
+                {results.findings.multiNumber.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-purple-300 text-sm font-medium flex items-center gap-2">
+                      <span>🔗</span> Connections Between Your Numbers
+                    </h3>
+                    {results.findings.multiNumber.map((finding, idx) => (
+                      <FindingCard key={`multi-${idx}`} finding={finding} />
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+
+                {/* Single-number results (collapsible) */}
+                {results.findings.singleNumber.length > 0 && (
+                  <details className="mt-4 group">
+                    <summary className="cursor-pointer text-purple-400/70 text-sm hover:text-purple-300 flex items-center gap-2 py-2">
+                      <svg className="w-4 h-4 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                      <span>✨ Individual Number Properties ({results.findings.singleNumber.length})</span>
+                    </summary>
+                    <div className="space-y-3 mt-3 pt-3 border-t border-purple-500/20">
+                      {results.findings.singleNumber.map((finding, idx) => (
+                        <FindingCard key={`single-${idx}`} finding={finding} compact />
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </>
             )}
 
             <button

@@ -57,25 +57,32 @@ function loadHistory() {
   } catch { return []; }
 }
 
-function saveToHistory(actions, states, payoffs) {
+function saveToHistory(actions, states, payoffs, sliderValues) {
   const history = loadHistory();
-  const entry = {
-    id: Date.now(),
-    actions,
-    states,
-    payoffs,
-    date: new Date().toLocaleDateString(),
-    preview: `${actions.length} actions × ${states.length} states`
-  };
-  const isDuplicate = history.some(h =>
+  const existingIdx = history.findIndex(h =>
     JSON.stringify(h.actions) === JSON.stringify(actions) &&
     JSON.stringify(h.states) === JSON.stringify(states)
   );
-  if (!isDuplicate) {
+
+  const entry = {
+    id: existingIdx >= 0 ? history[existingIdx].id : Date.now(),
+    actions,
+    states,
+    payoffs,
+    sliderValues,
+    date: new Date().toLocaleDateString(),
+    preview: `${actions.length} actions × ${states.length} states`
+  };
+
+  if (existingIdx >= 0) {
+    // Update existing entry
+    history[existingIdx] = entry;
+  } else {
+    // Add new entry
     history.unshift(entry);
     if (history.length > 10) history.pop();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
   }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
 }
 
 function deleteFromHistory(id) {
@@ -124,47 +131,64 @@ function Accordion({ title, subtitle, icon, children, defaultOpen = false, color
   );
 }
 
-// Interactive matrix editor
-function MatrixEditor({ actions, states, payoffs, onPayoffChange, editingCell, setEditingCell }) {
-  const [inputValue, setInputValue] = useState('');
+// 7-point Likert scale component
+function LikertScale({ onSelect, currentValue }) {
+  const options = [
+    { value: -3, label: 'Very Bad', color: 'bg-red-500', hoverColor: 'hover:bg-red-400' },
+    { value: -2, label: 'Bad', color: 'bg-orange-500', hoverColor: 'hover:bg-orange-400' },
+    { value: -1, label: 'Slightly Bad', color: 'bg-amber-400', hoverColor: 'hover:bg-amber-300' },
+    { value: 0, label: 'Neutral', color: 'bg-gray-400', hoverColor: 'hover:bg-gray-300' },
+    { value: 1, label: 'Slightly Good', color: 'bg-lime-400', hoverColor: 'hover:bg-lime-300' },
+    { value: 2, label: 'Good', color: 'bg-green-500', hoverColor: 'hover:bg-green-400' },
+    { value: 3, label: 'Very Good', color: 'bg-emerald-600', hoverColor: 'hover:bg-emerald-500' },
+  ];
 
+  return (
+    <div className="bg-white border-t border-gray-200 p-4 shadow-lg">
+      <p className="text-xs text-gray-500 text-center mb-3">Tap to rate this outcome:</p>
+      <div className="flex justify-between gap-1">
+        {options.map((opt) => {
+          const isSelected = currentValue === opt.value;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => onSelect(opt.value)}
+              className={`flex-1 py-3 px-1 rounded-lg text-white font-bold text-sm transition-all ${opt.color} ${opt.hoverColor} ${
+                isSelected ? 'ring-2 ring-offset-2 ring-cyan-500 scale-105' : ''
+              }`}
+            >
+              <div className="text-lg">{opt.value > 0 ? `+${opt.value}` : opt.value}</div>
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex justify-between mt-2 text-xs text-gray-500 px-1">
+        <span>Very Bad</span>
+        <span>Neutral</span>
+        <span>Very Good</span>
+      </div>
+    </div>
+  );
+}
+
+// Interactive matrix editor
+function MatrixEditor({ actions, states, payoffs, onPayoffChange, editingCell, setEditingCell, onLikertSelect }) {
   const handleCellClick = (ai, si) => {
     setEditingCell({ action: ai, state: si });
-    setInputValue(payoffs[ai]?.[si]?.toString() ?? '');
-  };
-
-  const handleInputChange = (e) => {
-    setInputValue(e.target.value);
-  };
-
-  const handleInputBlur = () => {
-    if (editingCell) {
-      const value = parseFloat(inputValue);
-      if (!isNaN(value)) {
-        onPayoffChange(editingCell.action, editingCell.state, value);
-      }
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      handleInputBlur();
-      // Move to next cell
-      const { action, state } = editingCell;
-      if (state < states.length - 1) {
-        handleCellClick(action, state + 1);
-      } else if (action < actions.length - 1) {
-        handleCellClick(action + 1, 0);
-      } else {
-        setEditingCell(null);
-      }
-    } else if (e.key === 'Escape') {
-      setEditingCell(null);
-    }
   };
 
   const truncate = (str, len = 10) =>
     str.length > len ? str.slice(0, len) + '…' : str;
+
+  // Color coding for values
+  const getValueColor = (value) => {
+    if (value === undefined) return 'text-gray-300';
+    if (value <= -2) return 'text-red-600 font-bold';
+    if (value < 0) return 'text-orange-600 font-medium';
+    if (value === 0) return 'text-gray-600 font-medium';
+    if (value <= 1) return 'text-lime-600 font-medium';
+    return 'text-green-600 font-bold';
+  };
 
   return (
     <div className="overflow-x-auto -mx-2 px-2">
@@ -203,27 +227,14 @@ function MatrixEditor({ actions, states, payoffs, onPayoffChange, editingCell, s
                   <td
                     key={si}
                     onClick={() => handleCellClick(ai, si)}
-                    className={`p-1 border border-gray-200 text-center cursor-pointer transition-all min-w-[60px] ${
+                    className={`p-2 border border-gray-200 text-center cursor-pointer transition-all min-w-[50px] ${
                       isEditing ? 'bg-cyan-100 ring-2 ring-cyan-500' :
                       isEmpty ? 'bg-gray-50 hover:bg-cyan-50' : 'bg-white hover:bg-cyan-50'
                     }`}
                   >
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={inputValue}
-                        onChange={handleInputChange}
-                        onBlur={handleInputBlur}
-                        onKeyDown={handleKeyDown}
-                        className="w-full p-1 text-center bg-transparent outline-none text-sm"
-                        autoFocus
-                      />
-                    ) : (
-                      <span className={isEmpty ? 'text-gray-300' : 'text-gray-800 font-medium'}>
-                        {isEmpty ? '—' : value}
-                      </span>
-                    )}
+                    <span className={getValueColor(value)}>
+                      {isEmpty ? '—' : (value > 0 ? `+${value}` : value)}
+                    </span>
                   </td>
                 );
               })}
@@ -279,7 +290,7 @@ function ProbabilitySliders({ states, sliderValues, onSliderChange, onResetSlide
 }
 
 // Results view with accordions
-function ResultsView({ actions, states, payoffs, probabilities, reset }) {
+function ResultsView({ actions, states, payoffs, probabilities, reset, goBack }) {
   const [hurwiczAlpha, setHurwiczAlpha] = useState(0.5);
 
   const calculations = useMemo(() => {
@@ -363,7 +374,10 @@ function ResultsView({ actions, states, payoffs, probabilities, reset }) {
 
   return (
     <div className="bg-white rounded-2xl shadow-xl p-6 overflow-auto max-h-[90vh]">
-      <h2 className="text-2xl font-bold text-gray-800 mb-2">Decision Analysis</h2>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-2xl font-bold text-gray-800">Decision Analysis</h2>
+        <button onClick={goBack} className="text-sm text-cyan-600 hover:text-cyan-700">← Back</button>
+      </div>
       <p className="text-gray-500 mb-4 text-sm">
         {actions.length} actions × {states.length} states
       </p>
@@ -588,12 +602,28 @@ function App() {
     return sliderValues.map(v => total > 0 ? v / total : 1 / states.length);
   }, [sliderValues, states.length]);
 
+  // Find first empty cell in a payoffs matrix
+  const findFirstEmptyCell = (payoffsMatrix, numActions, numStates) => {
+    for (let ai = 0; ai < numActions; ai++) {
+      for (let si = 0; si < numStates; si++) {
+        if (payoffsMatrix[ai]?.[si] === undefined) {
+          return { action: ai, state: si };
+        }
+      }
+    }
+    return null;
+  };
+
   const loadFromHistory = (entry) => {
     setActions(entry.actions);
     setStates(entry.states);
     setPayoffs(entry.payoffs);
-    setSliderValues(entry.states.map(() => 50));
+    // Use saved probabilities if available, otherwise default to equal
+    setSliderValues(entry.sliderValues || entry.states.map(() => 50));
     setShowHistory(false);
+    // Select first empty cell if any
+    const firstEmpty = findFirstEmptyCell(entry.payoffs, entry.actions.length, entry.states.length);
+    setEditingCell(firstEmpty);
     setStage('matrix');
   };
 
@@ -604,27 +634,76 @@ function App() {
   };
 
   const handleActionsSubmit = () => {
-    const items = inputText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
-    if (items.length < 2) {
+    const newActions = inputText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    if (newActions.length < 2) {
       alert('Please enter at least 2 options');
       return;
     }
-    setActions(items);
-    setInputText('');
+
+    // Build a map of old action names to their payoff rows
+    const oldPayoffsByAction = {};
+    actions.forEach((action, idx) => {
+      if (payoffs[idx]) {
+        oldPayoffsByAction[action] = payoffs[idx];
+      }
+    });
+
+    // Create new payoffs array, preserving data for actions that still exist
+    const newPayoffs = newActions.map(action => {
+      if (oldPayoffsByAction[action]) {
+        return [...oldPayoffsByAction[action]];
+      }
+      // New action - initialize with undefined for each state
+      return states.length > 0 ? new Array(states.length).fill(undefined) : [];
+    });
+
+    setActions(newActions);
+    setPayoffs(newPayoffs);
+    // Preserve existing states in the input field if they exist
+    setInputText(states.length > 0 ? states.join('\n') : '');
     setStage('states');
   };
 
   const handleStatesSubmit = () => {
-    const items = inputText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
-    if (items.length < 2) {
+    const newStates = inputText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    if (newStates.length < 2) {
       alert('Please enter at least 2 scenarios');
       return;
     }
-    setStates(items);
-    setPayoffs(actions.map(() => new Array(items.length).fill(undefined)));
-    setSliderValues(items.map(() => 50)); // Initialize sliders at middle
+
+    // Build a map of old state names to their column index
+    const oldStateIndex = {};
+    states.forEach((state, idx) => {
+      oldStateIndex[state] = idx;
+    });
+
+    // Create new payoffs matrix, preserving data for states that still exist
+    const newPayoffs = actions.map((action, ai) => {
+      return newStates.map(state => {
+        const oldIdx = oldStateIndex[state];
+        if (oldIdx !== undefined && payoffs[ai] && payoffs[ai][oldIdx] !== undefined) {
+          return payoffs[ai][oldIdx];
+        }
+        return undefined;
+      });
+    });
+
+    // Create new slider values, preserving for states that still exist
+    const newSliderValues = newStates.map(state => {
+      const oldIdx = oldStateIndex[state];
+      if (oldIdx !== undefined && sliderValues[oldIdx] !== undefined) {
+        return sliderValues[oldIdx];
+      }
+      return 50; // Default for new states
+    });
+
+    setStates(newStates);
+    setPayoffs(newPayoffs);
+    setSliderValues(newSliderValues);
+    // Select first empty cell if any
+    const firstEmpty = findFirstEmptyCell(newPayoffs, actions.length, newStates.length);
+    setEditingCell(firstEmpty);
     setInputText('');
-    setEditingCell({ action: 0, state: 0 }); // Start editing first cell
     setStage('matrix');
   };
 
@@ -650,24 +729,16 @@ function App() {
       alert('Please fill in all payoff values');
       return;
     }
-    saveToHistory(actions, states, payoffs);
+    saveToHistory(actions, states, payoffs, sliderValues);
     setHistory(loadHistory());
     setStage('probabilities');
   };
 
   const handleProbabilitiesDone = () => {
+    // Update history with final probabilities
+    saveToHistory(actions, states, payoffs, sliderValues);
+    setHistory(loadHistory());
     setStage('result');
-  };
-
-  const findNextEmptyCell = () => {
-    for (let ai = 0; ai < actions.length; ai++) {
-      for (let si = 0; si < states.length; si++) {
-        if (payoffs[ai]?.[si] === undefined) {
-          setEditingCell({ action: ai, state: si });
-          return;
-        }
-      }
-    }
   };
 
   const reset = () => {
@@ -686,9 +757,14 @@ function App() {
       setStage('actions');
     } else if (stage === 'matrix') {
       setInputText(states.join('\n'));
+      setEditingCell(null);
       setStage('states');
     } else if (stage === 'probabilities') {
+      // All cells are filled when coming from probabilities, so no cell to select
+      setEditingCell(null);
       setStage('matrix');
+    } else if (stage === 'result') {
+      setStage('probabilities');
     }
   };
 
@@ -701,9 +777,177 @@ function App() {
       </a>
       <div className="w-full max-w-xl my-auto pt-12">
 
+        {stage === 'help' && (
+          <div className="bg-white rounded-2xl shadow-xl p-6 overflow-auto max-h-[85vh]">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-2xl font-bold text-gray-800">How It Works</h1>
+              <button onClick={() => setStage('actions')} className="text-sm text-cyan-600 hover:text-cyan-700">← Back</button>
+            </div>
+
+            {/* What is this tool */}
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-2">What is a Decision Matrix?</h2>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                A decision matrix helps you make tough choices when the outcome depends on things you can't control.
+                Instead of going with your gut, you think through each possibility systematically.
+              </p>
+            </div>
+
+            {/* When to use */}
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-2">When Should I Use This?</h2>
+              <p className="text-gray-600 text-sm mb-3">This tool is perfect when:</p>
+              <ul className="text-sm text-gray-600 space-y-2">
+                <li className="flex gap-2">
+                  <span className="text-cyan-600">•</span>
+                  <span>You have several options to choose from</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-cyan-600">•</span>
+                  <span>The best choice depends on what happens in the future</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-cyan-600">•</span>
+                  <span>You're unsure which future is most likely</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Examples */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-xl">
+              <h3 className="font-semibold text-gray-700 mb-2">Example Questions:</h3>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li>"Should I take the new job, stay, or go freelance?"</li>
+                <li>"Should I invest in stocks, bonds, or property?"</li>
+                <li>"Should we launch now, wait, or pivot?"</li>
+                <li>"Should I rent or buy a home?"</li>
+              </ul>
+            </div>
+
+            {/* The Matrix Diagram */}
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-3">The Matrix</h2>
+              <p className="text-gray-600 text-sm mb-3">
+                You'll build a table where rows are your choices and columns are possible futures:
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="p-2 bg-gray-100 border border-gray-300"></th>
+                      <th className="p-2 bg-cyan-100 border border-gray-300 text-cyan-800">Economy Good</th>
+                      <th className="p-2 bg-cyan-100 border border-gray-300 text-cyan-800">Economy Bad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="p-2 bg-gray-100 border border-gray-300 font-medium">Take new job</td>
+                      <td className="p-2 border border-gray-300 text-center text-green-600 font-medium">+3</td>
+                      <td className="p-2 border border-gray-300 text-center text-orange-600 font-medium">-1</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 bg-gray-100 border border-gray-300 font-medium">Stay at current</td>
+                      <td className="p-2 border border-gray-300 text-center text-lime-600 font-medium">+1</td>
+                      <td className="p-2 border border-gray-300 text-center text-lime-600 font-medium">+1</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 bg-gray-100 border border-gray-300 font-medium">Go freelance</td>
+                      <td className="p-2 border border-gray-300 text-center text-green-600 font-medium">+3</td>
+                      <td className="p-2 border border-gray-300 text-center text-red-600 font-medium">-3</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-gray-500 text-xs mt-2 italic">
+                Each cell shows how good (+) or bad (-) that outcome would be for you.
+              </p>
+            </div>
+
+            {/* Steps */}
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-3">The Process</h2>
+              <div className="space-y-3">
+                <div className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-cyan-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">1</div>
+                  <div>
+                    <p className="font-medium text-gray-700">List your options</p>
+                    <p className="text-sm text-gray-500">What choices are you deciding between?</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-cyan-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">2</div>
+                  <div>
+                    <p className="font-medium text-gray-700">List possible scenarios</p>
+                    <p className="text-sm text-gray-500">What different futures might happen?</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-cyan-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">3</div>
+                  <div>
+                    <p className="font-medium text-gray-700">Rate each outcome</p>
+                    <p className="text-sm text-gray-500">How good or bad would each combination be?</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-cyan-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">4</div>
+                  <div>
+                    <p className="font-medium text-gray-700">Set probabilities</p>
+                    <p className="text-sm text-gray-500">How likely is each scenario?</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-cyan-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">5</div>
+                  <div>
+                    <p className="font-medium text-gray-700">See the analysis</p>
+                    <p className="text-sm text-gray-500">Different strategies suggest the best choice</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Decision strategies */}
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-2">How Results Are Calculated</h2>
+              <p className="text-gray-600 text-sm mb-3">
+                The tool shows you what different types of decision-makers would choose:
+              </p>
+              <div className="space-y-2 text-sm">
+                <div className="p-2 bg-red-50 rounded-lg">
+                  <span className="font-medium text-red-800">Cautious:</span>
+                  <span className="text-red-700"> "What if the worst happens?" Picks the safest option.</span>
+                </div>
+                <div className="p-2 bg-green-50 rounded-lg">
+                  <span className="font-medium text-green-800">Optimistic:</span>
+                  <span className="text-green-700"> "What if everything goes great?" Picks the highest potential.</span>
+                </div>
+                <div className="p-2 bg-cyan-50 rounded-lg">
+                  <span className="font-medium text-cyan-800">Balanced:</span>
+                  <span className="text-cyan-700"> Weighs each scenario by how likely it is.</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setStage('actions')}
+              className="w-full py-3 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-xl transition-colors"
+            >
+              Get Started →
+            </button>
+          </div>
+        )}
+
         {stage === 'actions' && (
           <div className="bg-white rounded-2xl shadow-xl p-6">
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Decision Matrix</h1>
+            <div className="flex items-center justify-between mb-2">
+              <h1 className="text-2xl font-bold text-gray-800">Decision Matrix</h1>
+              <button
+                onClick={() => setStage('help')}
+                className="w-8 h-8 rounded-full bg-cyan-100 hover:bg-cyan-200 text-cyan-700 flex items-center justify-center transition-colors"
+                title="How does this work?"
+              >
+                <span className="font-semibold text-sm">?</span>
+              </button>
+            </div>
             <p className="text-gray-500 mb-4 text-sm">
               Compare options across different scenarios to find the best choice.
             </p>
@@ -806,78 +1050,136 @@ function App() {
         )}
 
         {stage === 'matrix' && (
-          <div className="bg-white rounded-2xl shadow-xl p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-bold text-gray-800">Enter Payoffs</h2>
-              <button onClick={goBack} className="text-sm text-cyan-600 hover:text-cyan-700">← Back</button>
-            </div>
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 100px)' }}>
+            <div className="p-6 pb-0 flex-shrink-0">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-bold text-gray-800">Rate Outcomes</h2>
+                <button onClick={goBack} className="text-sm text-cyan-600 hover:text-cyan-700">← Back</button>
+              </div>
 
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm text-gray-500">
-                {completedPayoffs} of {totalPayoffs} filled
-              </span>
-              {!allPayoffsFilled && (
-                <button
-                  onClick={findNextEmptyCell}
-                  className="text-sm text-cyan-600 hover:text-cyan-700"
-                >
-                  Guide me →
-                </button>
+              <div className="mb-3">
+                <span className="text-sm text-gray-500">
+                  {completedPayoffs} of {totalPayoffs} rated
+                </span>
+              </div>
+
+              <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+                <div
+                  className="bg-cyan-600 h-2 rounded-full transition-all"
+                  style={{ width: `${totalPayoffs > 0 ? (completedPayoffs / totalPayoffs) * 100 : 0}%` }}
+                />
+              </div>
+
+              {/* Contextual prompt when editing */}
+              {editingCell && (
+                <div className="mb-4 p-3 bg-cyan-50 rounded-xl text-sm">
+                  <p className="text-gray-600 mb-1">
+                    If you choose <strong className="text-cyan-700">"{actions[editingCell.action]}"</strong>
+                  </p>
+                  <p className="text-gray-600">
+                    and <strong className="text-cyan-700">"{states[editingCell.state]}"</strong> happens...
+                  </p>
+                  <p className="text-cyan-800 font-medium mt-2">How good or bad is this outcome?</p>
+                </div>
+              )}
+
+              {!editingCell && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-xl text-sm text-gray-600">
+                  <p>Tap any cell to rate that outcome, then use the scale below.</p>
+                </div>
               )}
             </div>
 
-            <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-              <div
-                className="bg-cyan-600 h-2 rounded-full transition-all"
-                style={{ width: `${totalPayoffs > 0 ? (completedPayoffs / totalPayoffs) * 100 : 0}%` }}
+            <div className="px-6 flex-1 overflow-auto">
+              <MatrixEditor
+                actions={actions}
+                states={states}
+                payoffs={payoffs}
+                onPayoffChange={handlePayoffChange}
+                editingCell={editingCell}
+                setEditingCell={setEditingCell}
               />
             </div>
 
-            {/* Contextual prompt when editing */}
+            {/* Likert scale - shown when editing a cell */}
             {editingCell && (
-              <div className="mb-4 p-3 bg-cyan-50 rounded-xl text-sm">
-                <p className="text-gray-600 mb-1">
-                  If you choose <strong className="text-cyan-700">"{actions[editingCell.action]}"</strong>
-                </p>
-                <p className="text-gray-600 mb-2">
-                  and <strong className="text-cyan-700">"{states[editingCell.state]}"</strong> happens...
-                </p>
-                <p className="text-cyan-800 font-medium">What's the outcome value?</p>
-                <p className="text-xs text-gray-500 mt-2">
-                  Use any scale you like (e.g., -100 to 100, or dollars). Positive = good, negative = bad.
-                </p>
+              <div className="flex-shrink-0">
+                <LikertScale
+                  currentValue={payoffs[editingCell.action]?.[editingCell.state]}
+                  onSelect={(value) => {
+                    // Update the current cell
+                    const newPayoffs = payoffs.map((row, i) =>
+                      i === editingCell.action ? row.map((cell, j) => j === editingCell.state ? value : cell) : [...row]
+                    );
+                    handlePayoffChange(editingCell.action, editingCell.state, value);
+
+                    // Find next empty cell (starting from current position)
+                    const { action: currentAction, state: currentState } = editingCell;
+                    let found = false;
+
+                    // Check remaining cells in current row
+                    for (let si = currentState + 1; si < states.length; si++) {
+                      if (newPayoffs[currentAction]?.[si] === undefined) {
+                        setEditingCell({ action: currentAction, state: si });
+                        found = true;
+                        break;
+                      }
+                    }
+
+                    // Check subsequent rows
+                    if (!found) {
+                      for (let ai = currentAction + 1; ai < actions.length; ai++) {
+                        for (let si = 0; si < states.length; si++) {
+                          if (newPayoffs[ai]?.[si] === undefined) {
+                            setEditingCell({ action: ai, state: si });
+                            found = true;
+                            break;
+                          }
+                        }
+                        if (found) break;
+                      }
+                    }
+
+                    // Check rows before current (wrap around)
+                    if (!found) {
+                      for (let ai = 0; ai <= currentAction; ai++) {
+                        const endState = ai === currentAction ? currentState : states.length;
+                        for (let si = 0; si < endState; si++) {
+                          if (newPayoffs[ai]?.[si] === undefined) {
+                            setEditingCell({ action: ai, state: si });
+                            found = true;
+                            break;
+                          }
+                        }
+                        if (found) break;
+                      }
+                    }
+
+                    // No empty cells - deselect to show Next button
+                    if (!found) {
+                      setEditingCell(null);
+                    }
+                  }}
+                />
               </div>
             )}
 
+            {/* Done button - shown when not editing */}
             {!editingCell && (
-              <div className="mb-4 p-3 bg-gray-50 rounded-xl text-sm text-gray-600">
-                <p>Tap any cell in the matrix to enter or edit its value.</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Tip: Use "Guide me" to walk through each cell, or tap directly on any cell.
-                </p>
+              <div className="p-6 pt-4 flex-shrink-0">
+                <button
+                  onClick={handleMatrixDone}
+                  disabled={!allPayoffsFilled}
+                  className={`w-full py-3 font-semibold rounded-xl transition-colors ${
+                    allPayoffsFilled
+                      ? 'bg-cyan-600 hover:bg-cyan-700 text-white'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  {allPayoffsFilled ? 'Next: Set Probabilities →' : `Rate ${totalPayoffs - completedPayoffs} more outcomes`}
+                </button>
               </div>
             )}
-
-            <MatrixEditor
-              actions={actions}
-              states={states}
-              payoffs={payoffs}
-              onPayoffChange={handlePayoffChange}
-              editingCell={editingCell}
-              setEditingCell={setEditingCell}
-            />
-
-            <button
-              onClick={handleMatrixDone}
-              disabled={!allPayoffsFilled}
-              className={`w-full mt-4 py-3 font-semibold rounded-xl transition-colors ${
-                allPayoffsFilled
-                  ? 'bg-cyan-600 hover:bg-cyan-700 text-white'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {allPayoffsFilled ? 'Next: Set Probabilities →' : `Fill ${totalPayoffs - completedPayoffs} more cells`}
-            </button>
           </div>
         )}
 
@@ -916,6 +1218,7 @@ function App() {
             payoffs={payoffs}
             probabilities={probabilities}
             reset={reset}
+            goBack={goBack}
           />
         )}
       </div>
