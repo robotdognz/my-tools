@@ -10,6 +10,7 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
     html, body, #root { height: 100%; margin: 0; overflow: hidden; }
@@ -39,6 +40,19 @@
       cursor: pointer;
       border: none;
       box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    @keyframes confetti-fall {
+      0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      top: -10px;
+      animation: confetti-fall 3s ease-out forwards;
+      z-index: 1000;
+      pointer-events: none;
     }
   </style>
 </head>
@@ -88,6 +102,75 @@ function saveToHistory(actions, states, payoffs, sliderValues) {
 function deleteFromHistory(id) {
   const history = loadHistory().filter(h => h.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
+
+// Progress indicator component
+function StepIndicator({ currentStep, totalSteps = 4 }) {
+  const steps = ['Options', 'Scenarios', 'Rate', 'Probabilities'];
+  return (
+    <div className="flex items-center justify-center gap-1 mb-4">
+      {steps.slice(0, totalSteps).map((step, idx) => (
+        <React.Fragment key={idx}>
+          <div className={`flex items-center gap-1 ${idx + 1 === currentStep ? 'text-cyan-700' : idx + 1 < currentStep ? 'text-cyan-500' : 'text-gray-300'}`}>
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+              idx + 1 === currentStep ? 'bg-cyan-600 text-white' :
+              idx + 1 < currentStep ? 'bg-cyan-200 text-cyan-700' :
+              'bg-gray-200 text-gray-400'
+            }`}>
+              {idx + 1 < currentStep ? '✓' : idx + 1}
+            </div>
+            <span className="text-xs hidden sm:inline">{step}</span>
+          </div>
+          {idx < totalSteps - 1 && (
+            <div className={`w-4 sm:w-8 h-0.5 ${idx + 1 < currentStep ? 'bg-cyan-400' : 'bg-gray-200'}`} />
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+// Confetti component
+function Confetti({ show }) {
+  const [pieces, setPieces] = useState([]);
+
+  useEffect(() => {
+    if (show) {
+      const colors = ['#06b6d4', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#ec4899'];
+      const newPieces = Array.from({ length: 50 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        delay: Math.random() * 0.5,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 6 + Math.random() * 8,
+      }));
+      setPieces(newPieces);
+      // Clean up after animation
+      const timer = setTimeout(() => setPieces([]), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [show]);
+
+  if (!show || pieces.length === 0) return null;
+
+  return (
+    <>
+      {pieces.map(piece => (
+        <div
+          key={piece.id}
+          className="confetti"
+          style={{
+            left: `${piece.left}%`,
+            backgroundColor: piece.color,
+            width: piece.size,
+            height: piece.size,
+            animationDelay: `${piece.delay}s`,
+            borderRadius: Math.random() > 0.5 ? '50%' : '0',
+          }}
+        />
+      ))}
+    </>
+  );
 }
 
 // Accordion component
@@ -292,6 +375,9 @@ function ProbabilitySliders({ states, sliderValues, onSliderChange, onResetSlide
 // Results view with accordions
 function ResultsView({ actions, states, payoffs, probabilities, reset, goBack }) {
   const [hurwiczAlpha, setHurwiczAlpha] = useState(0.5);
+  const [showConfetti, setShowConfetti] = useState(true);
+  const [shareStatus, setShareStatus] = useState(null); // null, 'generating', 'shared', 'downloaded', 'copied'
+  const shareCardRef = React.useRef(null);
 
   const calculations = useMemo(() => {
     // Maximin
@@ -366,6 +452,67 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
     }
   };
 
+  const shareResults = async () => {
+    if (!shareCardRef.current) return;
+
+    setShareStatus('generating');
+
+    try {
+      // Capture the share card as an image
+      const canvas = await html2canvas(shareCardRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2, // Higher quality
+        logging: false,
+      });
+
+      // Convert to blob
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const file = new File([blob], 'decision-result.png', { type: 'image/png' });
+
+      // Try native share API first (mobile)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'My Decision Analysis',
+          text: `Recommended: ${formatBestActions(calculations.hurwicz)}`,
+        });
+        setShareStatus('shared');
+      } else if (navigator.share) {
+        // Share without file (some browsers)
+        const bestChoice = formatBestActions(calculations.hurwicz);
+        const riskLevel = hurwiczAlpha < 0.3 ? 'Cautious' : hurwiczAlpha > 0.7 ? 'Optimistic' : 'Balanced';
+        await navigator.share({
+          title: 'Decision Matrix Result',
+          text: `My decision analysis (${riskLevel} approach): ${bestChoice}\n\nMade with Marco's Tools`,
+        });
+        setShareStatus('shared');
+      } else {
+        // Fallback: download the image
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'decision-result.png';
+        a.click();
+        URL.revokeObjectURL(url);
+        setShareStatus('downloaded');
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        // User didn't cancel, try clipboard fallback
+        const bestChoice = formatBestActions(calculations.hurwicz);
+        const riskLevel = hurwiczAlpha < 0.3 ? 'Cautious' : hurwiczAlpha > 0.7 ? 'Optimistic' : 'Balanced';
+        const text = `Decision: ${bestChoice} (${riskLevel})\nMade with Marco's Tools`;
+        await navigator.clipboard.writeText(text);
+        setShareStatus('copied');
+      } else {
+        setShareStatus(null);
+        return;
+      }
+    }
+
+    setTimeout(() => setShareStatus(null), 2500);
+  };
+
   const ResultList = ({ results, actions, isLowerBetter = false }) => {
     const tiedCount = results.filter(r => r.isBest).length;
     const isTied = tiedCount > 1;
@@ -389,11 +536,106 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
     );
   };
 
+  const getShareButtonText = () => {
+    switch (shareStatus) {
+      case 'generating': return '...';
+      case 'shared': return '✓ Shared';
+      case 'downloaded': return '✓ Saved';
+      case 'copied': return '✓ Copied';
+      default: return 'Share';
+    }
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-xl p-6 overflow-auto max-h-[90vh]">
+      <Confetti show={showConfetti} />
+
+      {/* Hidden share card for image generation */}
+      <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        <div
+          ref={shareCardRef}
+          style={{
+            width: 400,
+            padding: 24,
+            background: 'linear-gradient(135deg, #ecfeff 0%, #cffafe 100%)',
+            fontFamily: 'Arial, Helvetica, sans-serif',
+            letterSpacing: 'normal',
+            wordSpacing: 'normal',
+          }}
+        >
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: 14, color: '#0e7490', marginBottom: 4, letterSpacing: 0 }}>{'My Decision Analysis'}</div>
+            <div style={{ fontSize: 12, color: '#64748b', letterSpacing: 0 }}>
+              {hurwiczAlpha < 0.3 ? 'Cautious approach' : hurwiczAlpha > 0.7 ? 'Optimistic approach' : 'Balanced approach'}
+            </div>
+          </div>
+
+          <div style={{
+            background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+            borderRadius: 12,
+            padding: 20,
+            color: 'white',
+            textAlign: 'center',
+            marginBottom: 16,
+          }}>
+            <div style={{ fontSize: 12, opacity: 0.9, marginBottom: 8, letterSpacing: 0 }}>{'Recommended Choice'}</div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', letterSpacing: 0 }}>{formatBestActions(calculations.hurwicz)}</div>
+          </div>
+
+          <div style={{
+            background: 'white',
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 16,
+          }}>
+            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8, letterSpacing: 0 }}>{'All options scored:'}</div>
+            {actions.map((action, idx) => {
+              const result = calculations.hurwicz[idx];
+              return (
+                <div key={idx} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '6px 0',
+                  borderBottom: idx < actions.length - 1 ? '1px solid #f1f5f9' : 'none',
+                  fontWeight: result.isBest ? 'bold' : 'normal',
+                  color: result.isBest ? '#0891b2' : '#475569',
+                  fontSize: 14,
+                  letterSpacing: 0,
+                }}>
+                  <span>{result.isBest ? '\u2605 ' : ''}{action}</span>
+                  <span>{result.value.toFixed(2)}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', letterSpacing: 0 }}>
+            {'Made with Marco\'s Tools'}
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-2xl font-bold text-gray-800">Decision Analysis</h2>
-        <button onClick={goBack} className="text-sm text-cyan-600 hover:text-cyan-700">← Back</button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={shareResults}
+            disabled={shareStatus === 'generating'}
+            className={`text-sm px-3 py-1 rounded-lg transition-colors flex items-center gap-1 ${
+              shareStatus && shareStatus !== 'generating'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+            }`}
+          >
+            {!shareStatus && (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+            )}
+            {getShareButtonText()}
+          </button>
+          <button onClick={goBack} className="text-sm text-cyan-600 hover:text-cyan-700">← Back</button>
+        </div>
       </div>
       {/* Intro tip for new users */}
       <details className="mb-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 group">
@@ -667,6 +909,24 @@ function App() {
     // Select first empty cell if any
     const firstEmpty = findFirstEmptyCell(entry.payoffs, entry.actions.length, entry.states.length);
     setEditingCell(firstEmpty);
+    setStage('matrix');
+  };
+
+  const loadExample = () => {
+    const exampleActions = ['Take the new job', 'Stay at current job', 'Go freelance'];
+    const exampleStates = ['Economy grows', 'Economy stays flat', 'Recession hits'];
+    const examplePayoffs = [
+      [3, 1, -1],   // New job: great if economy grows, okay if flat, risky in recession
+      [1, 1, 1],    // Stay: safe and stable regardless
+      [3, 0, -3],   // Freelance: high upside, high risk
+    ];
+    const exampleSliders = [40, 40, 20]; // Optimistic-ish probabilities
+
+    setActions(exampleActions);
+    setStates(exampleStates);
+    setPayoffs(examplePayoffs);
+    setSliderValues(exampleSliders);
+    setEditingCell(null); // All cells are filled
     setStage('matrix');
   };
 
@@ -991,6 +1251,7 @@ function App() {
                 <span className="font-semibold text-sm">?</span>
               </button>
             </div>
+            <StepIndicator currentStep={1} />
             <p className="text-gray-500 mb-4 text-sm">
               Compare options across different scenarios to find the best choice.
             </p>
@@ -1048,12 +1309,20 @@ function App() {
               </div>
             )}
 
-            <button
-              onClick={handleActionsSubmit}
-              className="w-full mt-4 py-3 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-xl transition-colors"
-            >
-              Next →
-            </button>
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={loadExample}
+                className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors text-sm"
+              >
+                Try an Example
+              </button>
+              <button
+                onClick={handleActionsSubmit}
+                className="flex-1 py-3 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-xl transition-colors"
+              >
+                Next →
+              </button>
+            </div>
           </div>
         )}
 
@@ -1063,6 +1332,7 @@ function App() {
               <h2 className="text-xl font-bold text-gray-800">Possible Scenarios</h2>
               <button onClick={goBack} className="text-sm text-cyan-600 hover:text-cyan-700">← Back</button>
             </div>
+            <StepIndicator currentStep={2} />
 
             <div className="mb-4 p-3 bg-cyan-50 rounded-xl text-sm text-gray-600">
               <strong className="text-cyan-700">Step 2: What could happen?</strong>
@@ -1099,6 +1369,7 @@ function App() {
                 <h2 className="text-xl font-bold text-gray-800">Rate Outcomes</h2>
                 <button onClick={goBack} className="text-sm text-cyan-600 hover:text-cyan-700">← Back</button>
               </div>
+              <StepIndicator currentStep={3} />
 
               <div className="mb-3">
                 <span className="text-sm text-gray-500">
@@ -1232,6 +1503,7 @@ function App() {
               <h2 className="text-xl font-bold text-gray-800">Set Probabilities</h2>
               <button onClick={goBack} className="text-sm text-cyan-600 hover:text-cyan-700">← Back</button>
             </div>
+            <StepIndicator currentStep={4} />
 
             <div className="mb-4 p-3 bg-cyan-50 rounded-xl text-sm text-gray-600">
               <strong className="text-cyan-700">How likely is each scenario?</strong>

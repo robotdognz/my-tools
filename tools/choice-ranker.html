@@ -10,6 +10,7 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
     html, body, #root { height: 100%; margin: 0; overflow: hidden; }
@@ -496,6 +497,69 @@ function StrengthChart({ options, scores }) {
 
 function ResultsView({ comparisonsMade, mode, scores, options, reset }) {
   const [activeTab, setActiveTab] = useState('network');
+  const [shareStatus, setShareStatus] = useState(null);
+  const shareCardRef = useRef(null);
+
+  const rankedOptions = [...options].sort((a, b) => (scores[b] || 0) - (scores[a] || 0));
+
+  const shareResults = async () => {
+    if (!shareCardRef.current) return;
+    setShareStatus('generating');
+
+    try {
+      const canvas = await html2canvas(shareCardRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+      });
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const file = new File([blob], 'ranking-result.png', { type: 'image/png' });
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'My Ranking Results',
+          text: `My top choice: ${rankedOptions[0]}`,
+        });
+        setShareStatus('shared');
+      } else if (navigator.share) {
+        await navigator.share({
+          title: 'Choice Ranker Results',
+          text: `My ranking:\n${rankedOptions.map((o, i) => `${i + 1}. ${o}`).join('\n')}\n\nMade with Marco's Tools`,
+        });
+        setShareStatus('shared');
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'ranking-result.png';
+        a.click();
+        URL.revokeObjectURL(url);
+        setShareStatus('downloaded');
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        const text = `My ranking: ${rankedOptions.slice(0, 3).join(', ')}...\nMade with Marco's Tools`;
+        await navigator.clipboard.writeText(text);
+        setShareStatus('copied');
+      } else {
+        setShareStatus(null);
+        return;
+      }
+    }
+    setTimeout(() => setShareStatus(null), 2500);
+  };
+
+  const getShareButtonText = () => {
+    switch (shareStatus) {
+      case 'generating': return '...';
+      case 'shared': return 'Shared';
+      case 'downloaded': return 'Saved';
+      case 'copied': return 'Copied';
+      default: return 'Share';
+    }
+  };
   
   const tabs = [
     { id: 'network', label: 'Network' },
@@ -505,7 +569,78 @@ function ResultsView({ comparisonsMade, mode, scores, options, reset }) {
 
   return (
     <div className="bg-white rounded-2xl shadow-xl p-8">
-      <h2 className="text-2xl font-bold text-gray-800 mb-2">Your Rankings</h2>
+      {/* Hidden share card */}
+      <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        <div
+          ref={shareCardRef}
+          style={{
+            width: 400,
+            padding: 24,
+            background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
+            fontFamily: 'Arial, Helvetica, sans-serif',
+          }}
+        >
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: 14, color: '#7c3aed', marginBottom: 4, letterSpacing: 0 }}>{'My Ranking Results'}</div>
+            <div style={{ fontSize: 12, color: '#64748b', letterSpacing: 0 }}>{comparisonsMade.length} {'comparisons made'}</div>
+          </div>
+
+          <div style={{ background: 'white', borderRadius: 12, padding: 16 }}>
+            {rankedOptions.slice(0, 5).map((option, idx) => (
+              <div key={idx} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '8px 0',
+                borderBottom: idx < Math.min(rankedOptions.length, 5) - 1 ? '1px solid #f1f5f9' : 'none',
+              }}>
+                <div style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: '50%',
+                  textAlign: 'center',
+                  paddingTop: 6,
+                  boxSizing: 'border-box',
+                  fontSize: 12,
+                  fontWeight: 'bold',
+                  background: idx === 0 ? '#fbbf24' : idx === 1 ? '#d1d5db' : idx === 2 ? '#fdba74' : '#e5e7eb',
+                  color: idx === 0 ? '#78350f' : idx === 1 ? '#374151' : idx === 2 ? '#9a3412' : '#4b5563',
+                }}>{idx + 1}</div>
+                <span style={{ fontSize: 14, color: '#1f2937', letterSpacing: 0 }}>{option}</span>
+              </div>
+            ))}
+            {rankedOptions.length > 5 && (
+              <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', marginTop: 8 }}>
+                +{rankedOptions.length - 5} more
+              </div>
+            )}
+          </div>
+
+          <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 16 }}>
+            {'Made with Marco\'s Tools'}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-2xl font-bold text-gray-800">Your Rankings</h2>
+        <button
+          onClick={shareResults}
+          disabled={shareStatus === 'generating'}
+          className={`text-sm px-3 py-1 rounded-lg transition-colors flex items-center gap-1 ${
+            shareStatus && shareStatus !== 'generating'
+              ? 'bg-green-100 text-green-700'
+              : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+          }`}
+        >
+          {!shareStatus && (
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+            </svg>
+          )}
+          {getShareButtonText()}
+        </button>
+      </div>
       <p className="text-gray-500 mb-4">
         Based on {comparisonsMade.length} comparisons
         <span className="text-gray-400 ml-1">({MODES[mode].name} mode)</span>

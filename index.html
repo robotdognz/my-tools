@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Marco's Tools</title>
+  <title>Marco's Decision Tools</title>
   <link rel="manifest" href="/my-tools/manifest.json">
   <meta name="theme-color" content="#475569">
   <meta name="mobile-web-app-capable" content="yes">
@@ -23,9 +23,9 @@
 </head>
 <body class="bg-gradient-to-br from-slate-100 to-gray-200 min-h-screen p-6">
   <div class="max-w-md mx-auto">
-    <h1 class="text-2xl font-bold text-gray-800 mb-2">Marco's Tools</h1>
-    <p class="text-gray-500 mb-6">A collection of useful utilities</p>
-    
+    <h1 class="text-2xl font-bold text-gray-800 mb-2">Marco's Decision Tools</h1>
+    <p class="text-gray-500 mb-6">Tools to help you make decisions</p>
+
     <div class="install-prompt mb-6 p-4 bg-white/70 rounded-xl text-sm text-slate-700 border border-slate-200">
       <strong>Install as App</strong>
       <details class="mt-2">
@@ -45,6 +45,118 @@
         </ol>
       </details>
     </div>
+
+    <!-- Interactive Tool Finder -->
+    <details class="mb-6 bg-white/70 rounded-xl border border-slate-200" id="tool-finder">
+      <summary class="p-4 cursor-pointer text-sm font-medium text-slate-700 flex items-center justify-between">
+        <span>Help me find the right tool</span>
+        <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </summary>
+      <div class="px-4 pb-4">
+
+      <!-- Solo vs Group toggle -->
+      <div class="mb-4">
+        <p class="text-xs text-slate-500 mb-2">Who's deciding?</p>
+        <div class="flex gap-2">
+          <button onclick="setGroup(false)" id="btn-solo" class="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-slate-700 text-white">
+            👤 Just me
+          </button>
+          <button onclick="setGroup(true)" id="btn-group" class="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-slate-100 text-slate-600 hover:bg-slate-200">
+            👥 Group
+          </button>
+        </div>
+      </div>
+
+      <!-- Rationality slider -->
+      <div class="mb-4" id="rationality-section">
+        <p class="text-xs text-slate-500 mb-2">How do you want to decide?</p>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-slate-500">🧠 Logical</span>
+          <input type="range" id="rationality-slider" min="1" max="5" value="3"
+            class="flex-1 h-2 bg-gradient-to-r from-cyan-400 via-violet-400 to-purple-600 rounded-lg appearance-none cursor-pointer"
+            oninput="updateRecommendation()">
+          <span class="text-xs text-slate-500">✨ Vibes</span>
+        </div>
+      </div>
+
+      <!-- Recommendation -->
+      <div id="recommendation" class="p-3 rounded-lg border-2 transition-all">
+        <!-- Filled by JS -->
+      </div>
+      </div>
+    </details>
+
+    <script>
+      let isGroup = false;
+      let rationality = 3;
+
+      const tools = {
+        matrix: { name: 'Decision Matrix', emoji: '📊', href: '/my-tools/tools/decision-matrix.html', desc: 'Analyze options with decision theory', rationality: 1, group: false },
+        ranker: { name: 'Choice Ranker', emoji: '⚖️', href: '/my-tools/tools/choice-ranker.html', desc: 'Compare options head-to-head', rationality: 2, group: false },
+        narrower: { name: 'Choice Narrower', emoji: '🎲', href: '/my-tools/tools/choice-narrower.html', desc: 'Randomly eliminate until one remains', rationality: 3, group: false },
+        battle: { name: 'Decision Battle', emoji: '⚔️', href: '/my-tools/tools/decision-battle.html', desc: 'Gamified battles reveal your heart', rationality: 4, group: false },
+        numerology: { name: 'Decision Numerology', emoji: '🔮', href: '/my-tools/tools/decision-numerology.html', desc: 'Let cosmic numbers guide you', rationality: 5, group: false },
+        vote: { name: 'Team List Vote', emoji: '🗳️', href: '/my-tools/tools/ordered-list-vote.html', desc: 'Collect ranked votes from everyone', rationality: 2, group: true },
+      };
+
+      function setGroup(val) {
+        isGroup = val;
+        document.getElementById('btn-solo').className = !isGroup
+          ? 'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-slate-700 text-white'
+          : 'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-slate-100 text-slate-600 hover:bg-slate-200';
+        document.getElementById('btn-group').className = isGroup
+          ? 'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-slate-700 text-white'
+          : 'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-slate-100 text-slate-600 hover:bg-slate-200';
+        document.getElementById('rationality-section').style.display = isGroup ? 'none' : 'block';
+        updateRecommendation();
+      }
+
+      function updateRecommendation() {
+        rationality = parseInt(document.getElementById('rationality-slider').value);
+        const rec = document.getElementById('recommendation');
+
+        let tool;
+        if (isGroup) {
+          tool = tools.vote;
+        } else {
+          // Find closest match to rationality level
+          const soloTools = Object.values(tools).filter(t => !t.group);
+          tool = soloTools.reduce((best, t) =>
+            Math.abs(t.rationality - rationality) < Math.abs(best.rationality - rationality) ? t : best
+          );
+        }
+
+        const colors = {
+          1: { bg: 'bg-cyan-50', border: 'border-cyan-300', text: 'text-cyan-800' },
+          2: { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-800' },
+          3: { bg: 'bg-violet-50', border: 'border-violet-300', text: 'text-violet-800' },
+          4: { bg: 'bg-slate-100', border: 'border-red-400', text: 'text-red-900' },
+          5: { bg: 'bg-purple-100', border: 'border-purple-400', text: 'text-purple-900' },
+        };
+        const c = colors[tool.rationality] || colors[3];
+
+        rec.className = `p-3 rounded-lg border-2 transition-all ${c.bg} ${c.border}`;
+        rec.innerHTML = `
+          <a href="${tool.href}" class="block">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">${tool.emoji}</span>
+              <div>
+                <p class="font-semibold ${c.text}">${tool.name}</p>
+                <p class="text-xs ${c.text}/70">${tool.desc}</p>
+              </div>
+              <svg class="w-5 h-5 ml-auto ${c.text}/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </a>
+        `;
+      }
+
+      // Initialize
+      updateRecommendation();
+    </script>
 
     <div class="space-y-3" id="tool-list">
       <!-- Decision Matrix: Cyan/teal analytical theme -->
@@ -102,13 +214,13 @@
         </div>
       </a>
 
-      <!-- Magic Number Finder: Dark purple mystical theme -->
-      <a href="/my-tools/tools/magic-number-finder.html" class="block p-4 bg-gradient-to-r from-indigo-950 to-purple-900 rounded-xl shadow-md hover:shadow-lg transition-all hover:scale-[1.02] border border-purple-500/30">
+      <!-- Decision Numerology: Dark purple mystical theme -->
+      <a href="/my-tools/tools/decision-numerology.html" class="block p-4 bg-gradient-to-r from-indigo-950 to-purple-900 rounded-xl shadow-md hover:shadow-lg transition-all hover:scale-[1.02] border border-purple-500/30">
         <div class="flex items-center gap-3">
           <span class="text-2xl">🔮</span>
           <div>
-            <div class="font-semibold text-purple-200">Magic Number Finder</div>
-            <div class="text-sm text-purple-300/80">Discover hidden cosmic connections in any numbers</div>
+            <div class="font-semibold text-purple-200">Decision Numerology</div>
+            <div class="text-sm text-purple-300/80">Let cosmic numbers guide your choices</div>
           </div>
         </div>
       </a>

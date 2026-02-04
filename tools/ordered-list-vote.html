@@ -10,6 +10,7 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
     html, body, #root { height: 100%; margin: 0; overflow: hidden; }
@@ -142,7 +143,7 @@ function DraggableList({ items, onReorder }) {
 }
 
 // Results visualization
-function RankingResults({ choices, votes, voters }) {
+function RankingResults({ choices, votes, voters, shareCardRef }) {
   const [activeTab, setActiveTab] = useState('ranking');
 
   // Calculate Borda count and average ranks
@@ -374,6 +375,86 @@ function App() {
   const [showHandoff, setShowHandoff] = useState(false);
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [shareStatus, setShareStatus] = useState(null);
+  const shareCardRef = useRef(null);
+
+  const getVoteResults = () => {
+    if (votes.length === 0) return [];
+    const n = choices.length;
+    const scores = {};
+    choices.forEach(choice => { scores[choice] = 0; });
+    votes.forEach(vote => {
+      vote.order.forEach((choice, idx) => {
+        scores[choice] += (n - 1 - idx);
+      });
+    });
+    return [...choices].sort((a, b) => scores[b] - scores[a]).map((choice, idx) => ({
+      choice,
+      score: scores[choice],
+      rank: idx + 1,
+    }));
+  };
+
+  const shareResults = async () => {
+    if (!shareCardRef.current) return;
+    setShareStatus('generating');
+
+    try {
+      const canvas = await html2canvas(shareCardRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+      });
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const file = new File([blob], 'vote-results.png', { type: 'image/png' });
+      const results = getVoteResults();
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Team Vote Results',
+          text: `Group consensus: ${results[0]?.choice}`,
+        });
+        setShareStatus('shared');
+      } else if (navigator.share) {
+        await navigator.share({
+          title: 'Team Vote Results',
+          text: `Group ranking:\n${results.slice(0, 5).map((r, i) => `${i + 1}. ${r.choice}`).join('\n')}\n\nMade with Marco's Tools`,
+        });
+        setShareStatus('shared');
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'vote-results.png';
+        a.click();
+        URL.revokeObjectURL(url);
+        setShareStatus('downloaded');
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        const results = getVoteResults();
+        const text = `Group ranking: ${results.slice(0, 3).map(r => r.choice).join(', ')}\nMade with Marco's Tools`;
+        await navigator.clipboard.writeText(text);
+        setShareStatus('copied');
+      } else {
+        setShareStatus(null);
+        return;
+      }
+    }
+    setTimeout(() => setShareStatus(null), 2500);
+  };
+
+  const getShareButtonText = () => {
+    switch (shareStatus) {
+      case 'generating': return '...';
+      case 'shared': return 'Shared';
+      case 'downloaded': return 'Saved';
+      case 'copied': return 'Copied';
+      default: return 'Share';
+    }
+  };
 
   useEffect(() => {
     setHistory(loadHistory());
@@ -649,7 +730,74 @@ function App() {
 
         {stage === 'results' && (
           <div className="bg-white rounded-2xl shadow-xl p-6 overflow-auto max-h-[90vh]">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Results</h2>
+            {/* Hidden share card */}
+            <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+              <div
+                ref={shareCardRef}
+                style={{
+                  width: 400,
+                  padding: 24,
+                  background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
+                  fontFamily: 'Arial, Helvetica, sans-serif',
+                }}
+              >
+                <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                  <div style={{ fontSize: 14, color: '#ea580c', marginBottom: 4, letterSpacing: 0 }}>{'Team Vote Results'}</div>
+                  <div style={{ fontSize: 12, color: '#64748b', letterSpacing: 0 }}>{votes.length} {'voters'}</div>
+                </div>
+
+                <div style={{ background: 'white', borderRadius: 12, padding: 16 }}>
+                  {getVoteResults().slice(0, 5).map((result, idx) => (
+                    <div key={idx} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '8px 0',
+                      borderBottom: idx < Math.min(getVoteResults().length, 5) - 1 ? '1px solid #f1f5f9' : 'none',
+                    }}>
+                      <div style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 14,
+                        textAlign: 'center',
+                        lineHeight: '16px',
+                        fontSize: 12,
+                        fontWeight: 'bold',
+                        overflow: 'hidden',
+                        background: idx === 0 ? '#fbbf24' : idx === 1 ? '#d1d5db' : idx === 2 ? '#fdba74' : '#e5e7eb',
+                        color: idx === 0 ? '#78350f' : idx === 1 ? '#374151' : idx === 2 ? '#9a3412' : '#4b5563',
+                      }}>{idx + 1}</div>
+                      <span style={{ flex: 1, fontSize: 14, color: '#1f2937', letterSpacing: 0 }}>{result.choice}</span>
+                      <span style={{ fontSize: 12, color: '#9ca3af', letterSpacing: 0 }}>{result.score} pts</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 16 }}>
+                  {'Made with Marco\'s Tools'}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-2xl font-bold text-gray-800">Results</h2>
+              <button
+                onClick={shareResults}
+                disabled={shareStatus === 'generating'}
+                className={`text-sm px-3 py-1 rounded-lg transition-colors flex items-center gap-1 ${
+                  shareStatus && shareStatus !== 'generating'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                }`}
+              >
+                {!shareStatus && (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                )}
+                {getShareButtonText()}
+              </button>
+            </div>
             <p className="text-gray-500 mb-4 text-sm">
               Based on {votes.length} votes using Borda count method
             </p>
