@@ -152,28 +152,29 @@ const EQUATION_CONSTANTS = [
 
 function findMagic(numbers) {
   const results = [];
-  const tolerance = 0.009; // ~1% tolerance
+  const tolerance = 0.005; // ~0.5% tolerance for direct matches
+  const multiplesTolerance = 0.002; // tighter tolerance for multiples
 
   // Helper to check if a value is close to an integer or simple fraction
   function isNiceNumber(val) {
     if (!isFinite(val) || isNaN(val) || val === 0) return null;
 
-    // Check for integers
-    if (Math.abs(val - Math.round(val)) < 0.0001 && Math.abs(val) < 10000) {
-      return { value: Math.round(val), display: String(Math.round(val)), type: 'integer' };
-    }
-
-    // Check against magic numbers
+    // Check against magic numbers (direct matches only - no multiples, they create noise)
     for (const magic of MAGIC_NUMBERS) {
       const error = Math.abs(val / magic.value - 1);
       if (error < tolerance) {
         return { value: magic.value, display: magic.symbol, name: magic.name, type: 'magic', error, magic };
       }
-      // Check small multiples
-      for (const mult of [2, 3, 10, 100, 1000]) {
+    }
+
+    // Only check very precise multiples for the most important constants
+    const keyConstants = [Math.PI, (1 + Math.sqrt(5)) / 2, Math.E];
+    const keyMagic = MAGIC_NUMBERS.filter(m => keyConstants.some(k => Math.abs(m.value - k) < 0.0001));
+    for (const magic of keyMagic) {
+      for (const mult of [2, 10]) {
         const err2 = Math.abs(val / (magic.value * mult) - 1);
-        if (err2 < tolerance) {
-          return { value: magic.value * mult, display: `${mult}${magic.symbol}`, name: `${mult}× ${magic.name}`, type: 'magic', error: err2, magic };
+        if (err2 < multiplesTolerance) {
+          return { value: magic.value * mult, display: `${mult} × ${magic.symbol}`, name: `${mult} × ${magic.name}`, type: 'magic', error: err2, magic };
         }
       }
     }
@@ -327,7 +328,8 @@ function findMagic(numbers) {
   }
 
   // Sort by numbers involved (descending), then by accuracy
-  const seen = new Set();
+  const seenEquations = new Set();
+  const seenResults = new Set();
   return results
     .sort((a, b) => {
       if (b.numbersInvolved !== a.numbersInvolved) {
@@ -336,12 +338,20 @@ function findMagic(numbers) {
       return parseFloat(b.accuracy) - parseFloat(a.accuracy);
     })
     .filter(r => {
-      const key = `${r.equation}-${r.result}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
+      // Skip if we've seen this exact equation
+      const eqKey = `${r.equation}-${r.result}`;
+      if (seenEquations.has(eqKey)) return false;
+      seenEquations.add(eqKey);
+
+      // Also skip if we've already found this result (same magic number)
+      // Keep only the best (first, since sorted by accuracy) for each unique result
+      const resultKey = `${r.resultName}-${r.numbersInvolved}`;
+      if (seenResults.has(resultKey)) return false;
+      seenResults.add(resultKey);
+
       return true;
     })
-    .slice(0, 40);
+    .slice(0, 25);
 }
 
 const CATEGORY_COLORS = {
@@ -442,12 +452,12 @@ function App() {
             <textarea
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder={"Enter numbers to analyze...\n\nExamples:\n1776\n432\n23, 42, 108\n299792458"}
+              placeholder={"Enter at least 2 numbers...\n\nExamples:\n1776, 1969\n23, 42, 108\n3.14159, 2.71828"}
               className="w-full h-40 p-4 bg-slate-800/50 border border-purple-500/30 rounded-xl text-purple-100 placeholder-purple-400/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
             />
 
             <p className="text-purple-400/50 text-xs mt-2 text-center">
-              Separate multiple numbers with spaces, commas, or new lines
+              Enter at least 2 numbers separated by spaces, commas, or new lines
             </p>
 
             {history.length > 0 && (
@@ -553,8 +563,15 @@ function App() {
                         </p>
                         <p className="text-purple-300/80 text-sm mt-2">
                           → {finding.resultName || finding.result}
+                          {finding.magic?.value && (
+                            <span className="text-purple-400/60 ml-1">
+                              ({finding.magic.value.toLocaleString()})
+                            </span>
+                          )}
                         </p>
-                        <p className="text-purple-400/50 text-xs mt-1 italic">{finding.description}</p>
+                        <p className="text-purple-400/50 text-xs mt-1 italic">
+                          {finding.magic?.description || finding.description}
+                        </p>
                       </div>
                       <div className="text-right flex-shrink-0">
                         <div className="text-green-400 font-bold text-lg">{finding.accuracy}%</div>
