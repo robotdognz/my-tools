@@ -350,27 +350,44 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
     return { maximin, maximax, expectedValue, laplace, minimaxRegret, hurwicz, regretMatrix, maxRegrets };
   }, [actions, states, payoffs, probabilities, hurwiczAlpha]);
 
-  const getBestAction = (results) => {
-    const bestIdx = results.findIndex(r => r.isBest);
-    return actions[bestIdx];
+  const getBestActions = (results) => {
+    const bestIndices = results.map((r, idx) => r.isBest ? idx : -1).filter(idx => idx !== -1);
+    return bestIndices.map(idx => actions[idx]);
   };
 
-  const ResultList = ({ results, actions, isLowerBetter = false }) => (
-    <div className="mt-3 space-y-2">
-      {actions.map((action, idx) => {
-        const result = results[idx];
-        return (
-          <div key={idx} className={`flex justify-between items-center p-2 rounded-lg ${result.isBest ? 'bg-white/50 font-semibold' : ''}`}>
-            <span className="flex items-center gap-2">
-              {result.isBest && <span className="text-lg">★</span>}
-              {action}
-            </span>
-            <span>{result.value.toFixed(2)}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
+  const formatBestActions = (results) => {
+    const best = getBestActions(results);
+    if (best.length === 1) {
+      return best[0];
+    } else if (best.length === actions.length) {
+      return "All options tied";
+    } else {
+      return best.join(' / ');
+    }
+  };
+
+  const ResultList = ({ results, actions, isLowerBetter = false }) => {
+    const tiedCount = results.filter(r => r.isBest).length;
+    const isTied = tiedCount > 1;
+
+    return (
+      <div className="mt-3 space-y-2">
+        {actions.map((action, idx) => {
+          const result = results[idx];
+          return (
+            <div key={idx} className={`flex justify-between items-center p-2 rounded-lg ${result.isBest ? 'bg-white/50 font-semibold' : ''}`}>
+              <span className="flex items-center gap-2">
+                {result.isBest && <span className="text-lg">★</span>}
+                {action}
+                {result.isBest && isTied && <span className="text-xs opacity-70">(tied)</span>}
+              </span>
+              <span>{result.value.toFixed(2)}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <div className="bg-white rounded-2xl shadow-xl p-6 overflow-auto max-h-[90vh]">
@@ -379,13 +396,18 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
         <button onClick={goBack} className="text-sm text-cyan-600 hover:text-cyan-700">← Back</button>
       </div>
       {/* Intro tip for new users */}
-      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-        <p className="font-medium mb-1">💡 How to read these results</p>
-        <p className="text-amber-700">
+      <details className="mb-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 group">
+        <summary className="p-3 cursor-pointer font-medium flex items-center justify-between">
+          <span>💡 How to read these results</span>
+          <svg className="w-4 h-4 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </summary>
+        <p className="px-3 pb-3 text-amber-700">
           There's no single "right" answer — different strategies suit different people.
           Use the slider below to see what fits your risk tolerance, then explore the other methods.
         </p>
-      </div>
+      </details>
 
       {/* Hurwicz at the top with slider */}
       <div className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl p-4 mb-6">
@@ -397,7 +419,7 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
           </div>
         </div>
 
-        <p className="text-2xl font-bold my-3">{getBestAction(calculations.hurwicz)}</p>
+        <p className="text-2xl font-bold my-3">{formatBestActions(calculations.hurwicz)}</p>
 
         <div className="mt-4">
           <p className="text-sm opacity-90 mb-2 text-center">
@@ -426,17 +448,23 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
 
         <div className="mt-3 pt-3 border-t border-white/20">
           <p className="text-xs opacity-70 mb-2">Scores for each option (higher = better):</p>
-          <div className="space-y-1">
-            {actions.map((action, idx) => {
-              const result = calculations.hurwicz[idx];
-              return (
-                <div key={idx} className={`flex justify-between text-sm ${result.isBest ? 'font-semibold' : 'opacity-80'}`}>
-                  <span>{result.isBest && '★ '}{action}</span>
-                  <span>{result.value.toFixed(2)}</span>
-                </div>
-              );
-            })}
-          </div>
+          {(() => {
+            const tiedCount = calculations.hurwicz.filter(r => r.isBest).length;
+            const isTied = tiedCount > 1;
+            return (
+              <div className="space-y-1">
+                {actions.map((action, idx) => {
+                  const result = calculations.hurwicz[idx];
+                  return (
+                    <div key={idx} className={`flex justify-between text-sm ${result.isBest ? 'font-semibold' : 'opacity-80'}`}>
+                      <span>{result.isBest && '★ '}{action}{result.isBest && isTied && ' (tied)'}</span>
+                      <span>{result.value.toFixed(2)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -461,7 +489,7 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
                 "What's the least I could lose?"
               </p>
               <div className="bg-white/50 rounded-lg p-3">
-                <div className="font-semibold">Best choice: {getBestAction(calculations.maximin)}</div>
+                <div className="font-semibold">Best choice: {formatBestActions(calculations.maximin)}</div>
                 <ResultList results={calculations.maximin} actions={actions} />
               </div>
             </div>
@@ -475,7 +503,7 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
                 Regret = how much worse you did compared to the best possible choice for that scenario.
               </p>
               <div className="bg-white/50 rounded-lg p-3">
-                <div className="font-semibold">Best choice: {getBestAction(calculations.minimaxRegret)}</div>
+                <div className="font-semibold">Best choice: {formatBestActions(calculations.minimaxRegret)}</div>
                 <p className="text-xs text-gray-600 mt-1">(Lower max regret is better)</p>
                 <ResultList results={calculations.minimaxRegret} actions={actions} isLowerBetter={true} />
               </div>
@@ -543,7 +571,7 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
                 Uses your estimated probabilities.
               </p>
               <div className="bg-white/50 rounded-lg p-3">
-                <div className="font-semibold">Best choice: {getBestAction(calculations.expectedValue)}</div>
+                <div className="font-semibold">Best choice: {formatBestActions(calculations.expectedValue)}</div>
                 <ResultList results={calculations.expectedValue} actions={actions} />
               </div>
             </div>
@@ -554,7 +582,7 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
                 Use when you have no idea about probabilities.
               </p>
               <div className="bg-white/50 rounded-lg p-3">
-                <div className="font-semibold">Best choice: {getBestAction(calculations.laplace)}</div>
+                <div className="font-semibold">Best choice: {formatBestActions(calculations.laplace)}</div>
                 <ResultList results={calculations.laplace} actions={actions} />
               </div>
             </div>
@@ -575,7 +603,7 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
               "What's my best possible scenario?"
             </p>
             <div className="bg-white/50 rounded-lg p-3">
-              <div className="font-semibold">Best choice: {getBestAction(calculations.maximax)}</div>
+              <div className="font-semibold">Best choice: {formatBestActions(calculations.maximax)}</div>
               <ResultList results={calculations.maximax} actions={actions} />
             </div>
           </div>
