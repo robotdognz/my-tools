@@ -182,8 +182,16 @@ function findMagic(numbers) {
   }
 
   // Generate equations between numbers using constants
-  function tryEquation(equation, result, numCount, description) {
+  function tryEquation(equation, result, numCount, description, intermediateValue = null) {
     if (!isFinite(result) || isNaN(result)) return;
+
+    // Skip trivial results where intermediate value is ~1 (meaning we just get the constant back)
+    // This happens when numbers are close together and their ratio/sum ≈ 1
+    if (intermediateValue !== null) {
+      const intAbs = Math.abs(intermediateValue);
+      if (intAbs > 0.8 && intAbs < 1.25) return; // intermediate is ~1, result is trivially the constant
+    }
+
     const nice = isNiceNumber(result);
     if (nice && nice.type === 'magic') {
       results.push({
@@ -217,25 +225,25 @@ function findMagic(numbers) {
         tryEquation(`${a} + ${b}`, a + b, 2, 'United, they form a sacred sum');
         tryEquation(`${a} − ${b}`, a - b, 2, 'Their difference echoes through the cosmos');
 
-        // With constants
+        // With constants - pass intermediate values to filter trivial results
         for (const c of EQUATION_CONSTANTS) {
-          tryEquation(`(${a} + ${b}) ÷ ${c.symbol}`, (a + b) / c.value, 2, `Divided by ${c.name}, the sum transforms`);
-          tryEquation(`(${a} + ${b}) × ${c.symbol}`, (a + b) * c.value, 2, `Multiplied by ${c.name}, harmony emerges`);
-          tryEquation(`(${a} × ${b}) ÷ ${c.symbol}`, (a * b) / c.value, 2, `The product, scaled by ${c.name}`);
-          tryEquation(`(${a} − ${b}) × ${c.symbol}`, (a - b) * c.value, 2, `Their difference, amplified by ${c.name}`);
-          tryEquation(`${a} ÷ ${b} × ${c.symbol}`, (a / b) * c.value, 2, `The ratio, blessed by ${c.name}`);
-          tryEquation(`(${a} + ${b}) ÷ ${c.symbol}²`, (a + b) / (c.value * c.value), 2, `Divided by ${c.name} squared`);
-          tryEquation(`√(${a} × ${b}) ÷ ${c.symbol}`, Math.sqrt(a * b) / c.value, 2, `Their geometric mean divided by ${c.name}`);
-          tryEquation(`(${a}² + ${b}²) ÷ ${c.symbol}`, (a*a + b*b) / c.value, 2, `Sum of squares over ${c.name}`);
-          tryEquation(`(${a} × ${c.symbol}) ÷ ${b}`, (a * c.value) / b, 2, `${c.name} mediates between them`);
+          tryEquation(`(${a} + ${b}) ÷ ${c.symbol}`, (a + b) / c.value, 2, `Divided by ${c.name}, the sum transforms`, (a + b) / c.value);
+          tryEquation(`(${a} + ${b}) × ${c.symbol}`, (a + b) * c.value, 2, `Multiplied by ${c.name}, harmony emerges`, a + b);
+          tryEquation(`(${a} × ${b}) ÷ ${c.symbol}`, (a * b) / c.value, 2, `The product, scaled by ${c.name}`, (a * b) / c.value);
+          tryEquation(`(${a} − ${b}) × ${c.symbol}`, (a - b) * c.value, 2, `Their difference, amplified by ${c.name}`, a - b);
+          tryEquation(`${a} ÷ ${b} × ${c.symbol}`, (a / b) * c.value, 2, `The ratio, blessed by ${c.name}`, a / b);
+          tryEquation(`(${a} + ${b}) ÷ ${c.symbol}²`, (a + b) / (c.value * c.value), 2, `Divided by ${c.name} squared`, (a + b) / (c.value * c.value));
+          tryEquation(`√(${a} × ${b}) ÷ ${c.symbol}`, Math.sqrt(a * b) / c.value, 2, `Their geometric mean divided by ${c.name}`, Math.sqrt(a * b) / c.value);
+          tryEquation(`(${a}² + ${b}²) ÷ ${c.symbol}`, (a*a + b*b) / c.value, 2, `Sum of squares over ${c.name}`, (a*a + b*b) / c.value);
+          tryEquation(`(${a} × ${c.symbol}) ÷ ${b}`, (a * c.value) / b, 2, `${c.name} mediates between them`, a / b);
           tryEquation(`(${a} + ${c.symbol}) ÷ ${b}`, (a + c.value) / b, 2, `${c.name} joins one, divided by the other`);
         }
 
         // Double constants
-        tryEquation(`(${a} ÷ ${b}) × π × φ`, (a / b) * PI * PHI, 2, 'Pi and Phi amplify their ratio');
-        tryEquation(`(${a} + ${b}) ÷ (π × φ)`, (a + b) / (PI * PHI), 2, 'The sacred product divides their sum');
-        tryEquation(`(${a} × ${b}) ÷ (π × e)`, (a * b) / (PI * E), 2, 'Pi and e unlock their product');
-        tryEquation(`√(${a}² + ${b}²) ÷ π`, Math.sqrt(a*a + b*b) / PI, 2, 'Pythagorean distance over Pi');
+        tryEquation(`(${a} ÷ ${b}) × π × φ`, (a / b) * PI * PHI, 2, 'Pi and Phi amplify their ratio', a / b);
+        tryEquation(`(${a} + ${b}) ÷ (π × φ)`, (a + b) / (PI * PHI), 2, 'The sacred product divides their sum', (a + b) / (PI * PHI));
+        tryEquation(`(${a} × ${b}) ÷ (π × e)`, (a * b) / (PI * E), 2, 'Pi and e unlock their product', (a * b) / (PI * E));
+        tryEquation(`√(${a}² + ${b}²) ÷ π`, Math.sqrt(a*a + b*b) / PI, 2, 'Pythagorean distance over Pi', Math.sqrt(a*a + b*b) / PI);
       }
     }
   }
@@ -258,18 +266,18 @@ function findMagic(numbers) {
           tryEquation(`(${a} − ${b}) × ${c}`, (a - b) * c, 3, 'Difference amplified');
 
           for (const con of EQUATION_CONSTANTS.slice(0, 5)) {
-            tryEquation(`(${a} + ${b} + ${c}) ÷ ${con.symbol}`, (a + b + c) / con.value, 3, `Trinity divided by ${con.name}`);
-            tryEquation(`(${a} × ${b} × ${c}) ÷ ${con.symbol}`, (a * b * c) / con.value, 3, `Triple product over ${con.name}`);
-            tryEquation(`(${a} + ${b}) × ${c} ÷ ${con.symbol}`, (a + b) * c / con.value, 3, `Combined and scaled by ${con.name}`);
-            tryEquation(`(${a} × ${b} + ${c}) × ${con.symbol}`, (a * b + c) * con.value, 3, `${con.name} amplifies the pattern`);
-            tryEquation(`(${a} × ${b}) ÷ (${c} × ${con.symbol})`, (a * b) / (c * con.value), 3, `Double division with ${con.name}`);
-            tryEquation(`√(${a} × ${b} × ${c}) × ${con.symbol}`, Math.cbrt(a * b * c) * con.value, 3, `Cube root times ${con.name}`);
-            tryEquation(`(${a}×${b} + ${b}×${c} + ${a}×${c}) ÷ ${con.symbol}`, (a*b + b*c + a*c) / con.value, 3, `Symmetric products over ${con.name}`);
+            tryEquation(`(${a} + ${b} + ${c}) ÷ ${con.symbol}`, (a + b + c) / con.value, 3, `Trinity divided by ${con.name}`, (a + b + c) / con.value);
+            tryEquation(`(${a} × ${b} × ${c}) ÷ ${con.symbol}`, (a * b * c) / con.value, 3, `Triple product over ${con.name}`, (a * b * c) / con.value);
+            tryEquation(`(${a} + ${b}) × ${c} ÷ ${con.symbol}`, (a + b) * c / con.value, 3, `Combined and scaled by ${con.name}`, (a + b) * c / con.value);
+            tryEquation(`(${a} × ${b} + ${c}) × ${con.symbol}`, (a * b + c) * con.value, 3, `${con.name} amplifies the pattern`, a * b + c);
+            tryEquation(`(${a} × ${b}) ÷ (${c} × ${con.symbol})`, (a * b) / (c * con.value), 3, `Double division with ${con.name}`, (a * b) / c);
+            tryEquation(`√(${a} × ${b} × ${c}) × ${con.symbol}`, Math.cbrt(a * b * c) * con.value, 3, `Cube root times ${con.name}`, Math.cbrt(a * b * c));
+            tryEquation(`(${a}×${b} + ${b}×${c} + ${a}×${c}) ÷ ${con.symbol}`, (a*b + b*c + a*c) / con.value, 3, `Symmetric products over ${con.name}`, (a*b + b*c + a*c) / con.value);
           }
 
           // Complex equations
-          tryEquation(`(${a} × ${b}) ÷ ${c} × π`, (a * b / c) * PI, 3, 'Pi completes the equation');
-          tryEquation(`(${a} + ${b} × ${c}) ÷ φ`, (a + b * c) / PHI, 3, 'Golden Ratio divides the sum');
+          tryEquation(`(${a} × ${b}) ÷ ${c} × π`, (a * b / c) * PI, 3, 'Pi completes the equation', a * b / c);
+          tryEquation(`(${a} + ${b} × ${c}) ÷ φ`, (a + b * c) / PHI, 3, 'Golden Ratio divides the sum', (a + b * c) / PHI);
           tryEquation(`√(${a}² + ${b}² + ${c}²)`, Math.sqrt(a*a + b*b + c*c), 3, '3D Pythagorean distance');
           tryEquation(`(${a} + ${b}) × (${a} + ${c}) ÷ (${b} × ${c})`, (a+b)*(a+c)/(b*c), 3, 'A symmetric dance');
         }
@@ -292,12 +300,12 @@ function findMagic(numbers) {
             tryEquation(`(${a} × ${b}) ÷ (${c} + ${d})`, (a * b) / (c + d), 4, 'Product over sum');
             tryEquation(`(${a} + ${b}) ÷ (${c} − ${d})`, (a + b) / (c - d), 4, 'Sum over difference');
             tryEquation(`(${a} × ${b} × ${c}) ÷ ${d}`, (a * b * c) / d, 4, 'Triple product divided');
-            tryEquation(`(${a} + ${b}) × (${c} + ${d}) ÷ π`, (a+b)*(c+d)/PI, 4, 'Paired product over Pi');
-            tryEquation(`(${a} × ${b}) ÷ (${c} × ${d}) × φ`, (a*b)/(c*d)*PHI, 4, 'Ratio of products times Phi');
-            tryEquation(`(${a} + ${b} + ${c} + ${d}) ÷ φ`, (a + b + c + d) / PHI, 4, 'Total divided by Golden Ratio');
-            tryEquation(`(${a} × ${b} × ${c} × ${d}) ÷ π²`, (a * b * c * d) / (PI * PI), 4, 'Quadruple product over Pi squared');
+            tryEquation(`(${a} + ${b}) × (${c} + ${d}) ÷ π`, (a+b)*(c+d)/PI, 4, 'Paired product over Pi', (a+b)*(c+d)/PI);
+            tryEquation(`(${a} × ${b}) ÷ (${c} × ${d}) × φ`, (a*b)/(c*d)*PHI, 4, 'Ratio of products times Phi', (a*b)/(c*d));
+            tryEquation(`(${a} + ${b} + ${c} + ${d}) ÷ φ`, (a + b + c + d) / PHI, 4, 'Total divided by Golden Ratio', (a + b + c + d) / PHI);
+            tryEquation(`(${a} × ${b} × ${c} × ${d}) ÷ π²`, (a * b * c * d) / (PI * PI), 4, 'Quadruple product over Pi squared', (a * b * c * d) / (PI * PI));
             tryEquation(`√(${a}×${b}) + √(${c}×${d})`, Math.sqrt(a*b) + Math.sqrt(c*d), 4, 'Sum of geometric means');
-            tryEquation(`(${a}×${b} − ${c}×${d}) × φ`, (a*b - c*d) * PHI, 4, 'Product difference times Phi');
+            tryEquation(`(${a}×${b} − ${c}×${d}) × φ`, (a*b - c*d) * PHI, 4, 'Product difference times Phi', a*b - c*d);
           }
         }
       }
@@ -313,18 +321,18 @@ function findMagic(numbers) {
 
     tryEquation(`${sumStr}`, sum, n, 'All numbers unite');
     tryEquation(`${prodStr}`, product, n, 'All numbers multiply');
-    tryEquation(`(${sumStr}) ÷ π`, sum / PI, n, 'Total divided by Pi');
-    tryEquation(`(${sumStr}) ÷ φ`, sum / PHI, n, 'Total divided by Phi');
-    tryEquation(`(${sumStr}) × φ ÷ π`, sum * PHI / PI, n, 'Phi over Pi scales the sum');
-    tryEquation(`(${prodStr}) ÷ e`, product / E, n, "Euler's number divides the product");
+    tryEquation(`(${sumStr}) ÷ π`, sum / PI, n, 'Total divided by Pi', sum / PI);
+    tryEquation(`(${sumStr}) ÷ φ`, sum / PHI, n, 'Total divided by Phi', sum / PHI);
+    tryEquation(`(${sumStr}) × φ ÷ π`, sum * PHI / PI, n, 'Phi over Pi scales the sum', sum * PHI / PI);
+    tryEquation(`(${prodStr}) ÷ e`, product / E, n, "Euler's number divides the product", product / E);
     tryEquation(`√(${sumStr})`, Math.sqrt(sum), n, 'Square root of total');
     tryEquation(`(${sumStr})² ÷ (${prodStr})`, (sum * sum) / product, n, 'Sum squared over product');
 
     // Average-based
     const avg = sum / n;
     tryEquation(`avg(${numbers.join(', ')}) × ${n}`, avg * n, n, 'Average times count');
-    tryEquation(`avg × π`, avg * PI, n, 'Average times Pi');
-    tryEquation(`avg × φ × e`, avg * PHI * E, n, 'Average times sacred constants');
+    tryEquation(`avg × π`, avg * PI, n, 'Average times Pi', avg);
+    tryEquation(`avg × φ × e`, avg * PHI * E, n, 'Average times sacred constants', avg);
   }
 
   // Sort by numbers involved (descending), then by accuracy
