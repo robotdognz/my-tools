@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Decision Battle</title>
+  <meta name="theme-color" content="#dc2626">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    html, body, #root { height: 100%; margin: 0; overflow: hidden; }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px) rotate(-1deg); }
+      75% { transform: translateX(5px) rotate(1deg); }
+    }
+
+    @keyframes hit-left {
+      0% { transform: scale(1); }
+      50% { transform: scale(0.9); filter: brightness(2); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes hit-right {
+      0% { transform: scaleX(-1) scale(1); }
+      50% { transform: scaleX(-1) scale(0.9); filter: brightness(2); }
+      100% { transform: scaleX(-1) scale(1); }
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px currentColor; }
+      50% { box-shadow: 0 0 40px currentColor, 0 0 60px currentColor; }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    @keyframes float-flipped {
+      0%, 100% { transform: scaleX(-1) translateY(0); }
+      50% { transform: scaleX(-1) translateY(-8px); }
+    }
+
+    @keyframes attack-right {
+      0% { transform: scaleX(-1) translateX(0); }
+      30% { transform: scaleX(-1) translateX(20px); }
+      50% { transform: scaleX(-1) translateX(35px) scale(1.1); }
+      100% { transform: scaleX(-1) translateX(0); }
+    }
+
+    @keyframes attack-left {
+      0% { transform: translateX(0); }
+      30% { transform: translateX(-20px); }
+      50% { transform: translateX(-35px) scale(1.1); }
+      100% { transform: translateX(0); }
+    }
+
+    @keyframes boost-pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes powerup-float {
+      0% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-30px); }
+    }
+
+    .shake { animation: shake 0.3s ease-in-out; }
+    .hit-left { animation: hit-left 0.3s ease-in-out; }
+    .hit-right { animation: hit-right 0.3s ease-in-out; }
+    .float { animation: float 2s ease-in-out infinite; }
+    .float-flipped { animation: float-flipped 2s ease-in-out infinite; }
+    .attack-right { animation: attack-right 0.4s ease-out; }
+    .attack-left { animation: attack-left 0.4s ease-out; }
+    .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+    .boost-pulse { animation: boost-pulse 0.3s ease-out; }
+    .powerup-float { animation: powerup-float 0.8s ease-out forwards; }
+
+    .health-bar {
+      transition: width 0.3s ease-out;
+    }
+
+    .monster-glow {
+      filter: drop-shadow(0 0 8px currentColor);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+// localStorage helpers
+const STORAGE_KEY = 'decision-battle-history';
+
+function loadHistory() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+}
+
+function saveToHistory(choices) {
+  const history = loadHistory();
+  const entry = {
+    id: Date.now(),
+    choices,
+    date: new Date().toLocaleDateString(),
+    preview: `${choices[0]} vs ${choices[1]}`
+  };
+  const isDuplicate = history.some(h =>
+    h.choices[0] === choices[0] && h.choices[1] === choices[1]
+  );
+  if (!isDuplicate) {
+    history.unshift(entry);
+    if (history.length > 10) history.pop();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  }
+}
+
+function deleteFromHistory(id) {
+  const history = loadHistory().filter(h => h.id !== id);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
+
+// Monster types with different vibes
+const MONSTER_TYPES = [
+  { emoji: '🐉', name: 'Dragon' },
+  { emoji: '👹', name: 'Oni' },
+  { emoji: '🦁', name: 'Lion' },
+  { emoji: '🐺', name: 'Wolf' },
+  { emoji: '🦅', name: 'Eagle' },
+  { emoji: '🐻', name: 'Bear' },
+  { emoji: '🦈', name: 'Shark' },
+  { emoji: '🦂', name: 'Scorpion' },
+  { emoji: '🐍', name: 'Serpent' },
+  { emoji: '🦇', name: 'Bat' },
+  { emoji: '🐗', name: 'Boar' },
+  { emoji: '🦎', name: 'Lizard' },
+];
+
+const COLORS = [
+  { bg: 'bg-gradient-to-br from-red-500 to-orange-600', glow: 'text-red-500', ring: 'ring-red-500', name: 'Crimson' },
+  { bg: 'bg-gradient-to-br from-blue-500 to-cyan-600', glow: 'text-blue-500', ring: 'ring-blue-500', name: 'Azure' },
+  { bg: 'bg-gradient-to-br from-green-500 to-emerald-600', glow: 'text-green-500', ring: 'ring-green-500', name: 'Verdant' },
+  { bg: 'bg-gradient-to-br from-purple-500 to-pink-600', glow: 'text-purple-500', ring: 'ring-purple-500', name: 'Mystic' },
+  { bg: 'bg-gradient-to-br from-amber-500 to-yellow-600', glow: 'text-amber-500', ring: 'ring-amber-500', name: 'Golden' },
+  { bg: 'bg-gradient-to-br from-slate-500 to-zinc-600', glow: 'text-slate-400', ring: 'ring-slate-500', name: 'Shadow' },
+  { bg: 'bg-gradient-to-br from-rose-500 to-red-600', glow: 'text-rose-500', ring: 'ring-rose-500', name: 'Scarlet' },
+  { bg: 'bg-gradient-to-br from-teal-500 to-cyan-600', glow: 'text-teal-500', ring: 'ring-teal-500', name: 'Tidal' },
+];
+
+// Simple hash function for consistent generation
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
+function generateMonster(choice, index) {
+  const hash = hashString(choice + index);
+  const monsterType = MONSTER_TYPES[hash % MONSTER_TYPES.length];
+  // Ensure different colors for each monster
+  const colorIndex = index === 0 ? (hash >> 4) % COLORS.length : ((hash >> 4) + 4) % COLORS.length;
+  const color = COLORS[colorIndex];
+
+  return {
+    choice,
+    emoji: monsterType.emoji,
+    typeName: monsterType.name,
+    color,
+    fullName: `${color.name} ${monsterType.name}`,
+    maxHp: 100,
+    hp: 100,
+    attack: 8,
+    defense: 3,
+  };
+}
+
+function Monster({ monster, isLeft, isAttacking, isHit, isWinner, boostEffect }) {
+  const flipClass = isLeft ? '' : 'scale-x-[-1]';
+
+  return (
+    <div className="flex flex-col items-center">
+      {/* Monster name plate */}
+      <div className={`text-center mb-2 px-3 py-1 rounded-lg ${monster.color.bg} shadow-lg`}>
+        <p className="text-white text-xs font-bold truncate max-w-[100px]" title={monster.choice}>
+          "{monster.choice}"
+        </p>
+      </div>
+
+      {/* Monster with colored glow background */}
+      <div className="relative">
+        {/* Colored glow circle behind monster */}
+        <div className={`absolute inset-0 -m-2 rounded-full ${monster.color.bg} opacity-40 blur-xl`} />
+
+        {/* Boost effect */}
+        {boostEffect && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-2xl powerup-float">+</span>
+          </div>
+        )}
+
+        <div
+          className={`relative text-6xl transition-all duration-200 ${monster.color.glow} monster-glow ${
+            isAttacking ? (isLeft ? 'attack-right' : 'attack-left') :
+            isHit ? (isLeft ? 'hit-right shake' : 'hit-left shake') :
+            isWinner ? (isLeft ? 'float-flipped' : 'float') :
+            isLeft ? 'scale-x-[-1]' : ''
+          } ${boostEffect ? 'boost-pulse' : ''}`}
+          style={{
+            filter: monster.hp <= 0 ? 'grayscale(1) opacity(0.5)' : undefined,
+            transform: (!isAttacking && !isHit && !isWinner && isLeft) ? 'scaleX(-1)' : undefined
+          }}
+        >
+          {monster.emoji}
+        </div>
+      </div>
+
+      {/* Health bar */}
+      <div className={`w-24 h-3 bg-black/40 rounded-full overflow-hidden mt-3 ring-2 ${monster.color.ring}`}>
+        <div
+          className={`health-bar h-full rounded-full ${
+            monster.hp > 50 ? 'bg-gradient-to-r from-green-400 to-green-500' :
+            monster.hp > 25 ? 'bg-gradient-to-r from-yellow-400 to-orange-500' :
+            'bg-gradient-to-r from-red-500 to-red-600'
+          }`}
+          style={{ width: `${Math.max(0, monster.hp)}%` }}
+        />
+      </div>
+      <p className="text-white text-sm font-bold mt-1">{Math.max(0, Math.round(monster.hp))} HP</p>
+    </div>
+  );
+}
+
+function App() {
+  const [stage, setStage] = useState('input'); // input, intro, battle, result
+  const [choices, setChoices] = useState(['', '']);
+  const [monsters, setMonsters] = useState([null, null]);
+  const [battleLog, setBattleLog] = useState([]);
+  const [userBoosts, setUserBoosts] = useState([0, 0]); // Track boosts given to each
+  const [round, setRound] = useState(0);
+  const [attackingMonster, setAttackingMonster] = useState(null);
+  const [hitMonster, setHitMonster] = useState(null);
+  const [winner, setWinner] = useState(null);
+  const [boostEffect, setBoostEffect] = useState([false, false]);
+  const [battleSpeed, setBattleSpeed] = useState(800); // ms between attacks
+  const [history, setHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const battleIntervalRef = useRef(null);
+
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
+
+  const addLog = useCallback((message, type = 'normal') => {
+    setBattleLog(prev => [...prev.slice(-4), { message, type, id: Date.now() }]);
+  }, []);
+
+  const startBattle = () => {
+    if (choices[0].trim().length < 1 || choices[1].trim().length < 1) {
+      alert('Please enter both choices');
+      return;
+    }
+
+    const trimmedChoices = [choices[0].trim(), choices[1].trim()];
+    saveToHistory(trimmedChoices);
+    setHistory(loadHistory());
+
+    const m1 = generateMonster(trimmedChoices[0], 0);
+    const m2 = generateMonster(trimmedChoices[1], 1);
+    setMonsters([m1, m2]);
+    setStage('intro');
+  };
+
+  const loadFromHistory = (entry) => {
+    setChoices(entry.choices);
+    setShowHistory(false);
+  };
+
+  const handleDeleteHistory = (id, e) => {
+    e.stopPropagation();
+    deleteFromHistory(id);
+    setHistory(loadHistory());
+  };
+
+  const beginFight = () => {
+    setStage('battle');
+    addLog('The battle begins! Tap a monster to boost it!', 'announcement');
+    setRound(1);
+  };
+
+  // Handle boost from user
+  const handleBoost = (index) => {
+    if (stage !== 'battle' || winner !== null) return;
+
+    // Track the boost
+    setUserBoosts(prev => {
+      const newBoosts = [...prev];
+      newBoosts[index]++;
+      return newBoosts;
+    });
+
+    // Apply small heal/attack boost
+    setMonsters(prev => {
+      const newMonsters = [...prev];
+      newMonsters[index] = {
+        ...newMonsters[index],
+        hp: Math.min(newMonsters[index].maxHp, newMonsters[index].hp + 3),
+        attack: newMonsters[index].attack + 0.5,
+      };
+      return newMonsters;
+    });
+
+    // Visual effect
+    setBoostEffect(prev => {
+      const newEffect = [...prev];
+      newEffect[index] = true;
+      return newEffect;
+    });
+    setTimeout(() => {
+      setBoostEffect(prev => {
+        const newEffect = [...prev];
+        newEffect[index] = false;
+        return newEffect;
+      });
+    }, 300);
+
+    addLog(`You boost ${monsters[index].fullName}! (+3 HP)`, 'boost');
+  };
+
+  // Battle loop
+  useEffect(() => {
+    if (stage !== 'battle' || round === 0 || winner !== null) return;
+
+    const executeAttack = () => {
+      const attacker = round % 2 === 1 ? 0 : 1;
+      const defender = 1 - attacker;
+
+      setAttackingMonster(attacker);
+
+      setTimeout(() => {
+        setHitMonster(defender);
+
+        setMonsters(prev => {
+          const damage = Math.max(1, prev[attacker].attack - prev[defender].defense + Math.floor(Math.random() * 5));
+          const newMonsters = [...prev];
+          newMonsters[defender] = {
+            ...newMonsters[defender],
+            hp: newMonsters[defender].hp - damage
+          };
+
+          addLog(`${prev[attacker].fullName} deals ${Math.round(damage)} damage!`);
+
+          // Check for winner
+          if (newMonsters[defender].hp <= 0) {
+            setTimeout(() => {
+              setWinner(attacker);
+              setStage('result');
+              addLog(`${prev[attacker].fullName} wins!`, 'victory');
+            }, 400);
+          }
+
+          return newMonsters;
+        });
+
+        setTimeout(() => {
+          setAttackingMonster(null);
+          setHitMonster(null);
+        }, 250);
+      }, 200);
+    };
+
+    const timer = setTimeout(() => {
+      executeAttack();
+      if (winner === null) {
+        setRound(prev => prev + 1);
+      }
+    }, battleSpeed);
+
+    return () => clearTimeout(timer);
+  }, [round, stage, winner, battleSpeed]);
+
+  const getAnalysis = () => {
+    const total = userBoosts[0] + userBoosts[1];
+    if (total === 0) return null;
+
+    const favoredIndex = userBoosts[0] > userBoosts[1] ? 0 : userBoosts[1] > userBoosts[0] ? 1 : null;
+    const favoredPercent = favoredIndex !== null
+      ? Math.round((Math.max(userBoosts[0], userBoosts[1]) / total) * 100)
+      : 50;
+
+    return {
+      favoredIndex,
+      favoredChoice: favoredIndex !== null ? choices[favoredIndex] : null,
+      boosts: userBoosts,
+      total,
+      favoredPercent,
+      isTie: userBoosts[0] === userBoosts[1],
+    };
+  };
+
+  const reset = () => {
+    setStage('input');
+    setChoices(['', '']);
+    setMonsters([null, null]);
+    setBattleLog([]);
+    setUserBoosts([0, 0]);
+    setRound(0);
+    setAttackingMonster(null);
+    setHitMonster(null);
+    setWinner(null);
+    setBoostEffect([false, false]);
+  };
+
+  return (
+    <div className="h-full bg-gradient-to-br from-slate-900 via-red-950 to-slate-900 p-4 flex items-center justify-center overflow-auto">
+      <a href="/my-tools/" className="absolute top-4 left-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors z-10">
+        <svg className="w-5 h-5 text-red-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      </a>
+
+      <div className="w-full max-w-md my-auto pt-12">
+        {stage === 'input' && (
+          <div className="bg-slate-800/80 backdrop-blur rounded-2xl shadow-2xl p-6 border border-red-500/30">
+            <div className="text-center mb-6">
+              <span className="text-4xl">⚔️</span>
+              <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400 mt-2">
+                Decision Battle
+              </h1>
+              <p className="text-red-200/70 text-sm mt-1">
+                Your choices become monsters. Your heart decides the winner.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-red-200/80 text-sm mb-1 block">First Choice</label>
+                <input
+                  type="text"
+                  value={choices[0]}
+                  onChange={(e) => setChoices([e.target.value, choices[1]])}
+                  placeholder="e.g., Take the job"
+                  className="w-full p-3 bg-slate-700/50 border border-red-500/30 rounded-xl text-red-100 placeholder-red-300/40 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                  maxLength={30}
+                />
+              </div>
+
+              <div className="text-center text-red-400 font-bold">VS</div>
+
+              <div>
+                <label className="text-red-200/80 text-sm mb-1 block">Second Choice</label>
+                <input
+                  type="text"
+                  value={choices[1]}
+                  onChange={(e) => setChoices([choices[0], e.target.value])}
+                  placeholder="e.g., Stay where I am"
+                  className="w-full p-3 bg-slate-700/50 border border-red-500/30 rounded-xl text-red-100 placeholder-red-300/40 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                  maxLength={30}
+                />
+              </div>
+
+              <div className="pt-2">
+                <label className="text-red-200/80 text-sm mb-2 block">Battle Speed</label>
+                <div className="flex items-center gap-3">
+                  <span className="text-red-300/60 text-xs">Slow</span>
+                  <input
+                    type="range"
+                    min="200"
+                    max="1200"
+                    step="100"
+                    value={1400 - battleSpeed}
+                    onChange={(e) => setBattleSpeed(1400 - parseInt(e.target.value))}
+                    className="flex-1 accent-red-500"
+                  />
+                  <span className="text-red-300/60 text-xs">Fast</span>
+                </div>
+                <p className="text-center text-red-400/50 text-xs mt-1">
+                  {battleSpeed >= 1000 ? 'Slow' : battleSpeed >= 700 ? 'Normal' : battleSpeed >= 400 ? 'Fast' : 'Chaos!'}
+                </p>
+              </div>
+            </div>
+
+            {history.length > 0 && (
+              <div className="mt-4">
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1"
+                >
+                  {showHistory ? 'Hide' : 'Load'} previous battles ({history.length})
+                  <svg className={`w-4 h-4 transition-transform ${showHistory ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showHistory && (
+                  <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
+                    {history.map(entry => (
+                      <div
+                        key={entry.id}
+                        onClick={() => loadFromHistory(entry)}
+                        className="flex items-center justify-between p-2 bg-slate-700/50 hover:bg-red-900/30 rounded-lg cursor-pointer border border-red-500/20"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-red-200 truncate">{entry.preview}</p>
+                          <p className="text-xs text-red-400/50">{entry.date}</p>
+                        </div>
+                        <button
+                          onClick={(e) => handleDeleteHistory(entry.id, e)}
+                          className="ml-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-red-400/70 hover:text-red-400 hover:bg-red-900/30 rounded-lg transition-colors"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mt-4 p-3 bg-red-900/30 rounded-xl text-sm text-red-200/70">
+              <p>During battle, <strong>tap either monster to boost it</strong>. Your instincts will reveal which choice you truly favor!</p>
+            </div>
+
+            <button
+              onClick={startBattle}
+              className="w-full mt-6 py-3 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-500/25"
+            >
+              Summon the Monsters! ⚔️
+            </button>
+          </div>
+        )}
+
+        {stage === 'intro' && monsters[0] && monsters[1] && (
+          <div className="bg-slate-800/80 backdrop-blur rounded-2xl shadow-2xl p-6 border border-red-500/30">
+            <h2 className="text-xl font-bold text-center text-red-200 mb-6">The Combatants</h2>
+
+            <div className="flex justify-around items-center mb-6">
+              <Monster monster={monsters[0]} isLeft={true} />
+              <div className="text-3xl text-red-400 font-bold px-2">VS</div>
+              <Monster monster={monsters[1]} isLeft={false} />
+            </div>
+
+            <div className="space-y-2 mb-6 text-center">
+              <p className="text-red-200/80 text-sm">
+                <span className="font-semibold">{monsters[0].fullName}</span>
+              </p>
+              <p className="text-red-300/50 text-xs">vs</p>
+              <p className="text-red-200/80 text-sm">
+                <span className="font-semibold">{monsters[1].fullName}</span>
+              </p>
+            </div>
+
+            <div className="p-3 bg-amber-900/30 rounded-xl text-sm text-amber-200/80 mb-4 text-center">
+              <p>Tap a monster during battle to boost it!</p>
+              <p className="text-xs text-amber-200/60 mt-1">Each tap: +3 HP, +0.5 Attack</p>
+            </div>
+
+            <button
+              onClick={beginFight}
+              className="w-full py-3 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-500/50"
+            >
+              Begin Battle!
+            </button>
+          </div>
+        )}
+
+        {stage === 'battle' && monsters[0] && monsters[1] && (
+          <div className="bg-slate-800/80 backdrop-blur rounded-2xl shadow-2xl p-4 border border-red-500/30">
+            <div className="text-center mb-2">
+              <span className="text-red-400 text-sm font-medium">Round {round}</span>
+              <span className="text-red-400/50 text-xs ml-3">
+                Boosts: {userBoosts[0]} vs {userBoosts[1]}
+              </span>
+            </div>
+
+            {/* Battle arena - tappable monsters */}
+            <div className="flex justify-around items-center mb-4">
+              <button
+                onClick={() => handleBoost(0)}
+                className="focus:outline-none active:scale-95 transition-transform p-2 rounded-2xl hover:bg-white/5"
+              >
+                <Monster
+                  monster={monsters[0]}
+                  isLeft={true}
+                  isAttacking={attackingMonster === 0}
+                  isHit={hitMonster === 0}
+                  boostEffect={boostEffect[0]}
+                />
+              </button>
+
+              <div className="text-2xl text-red-400 font-bold">⚔️</div>
+
+              <button
+                onClick={() => handleBoost(1)}
+                className="focus:outline-none active:scale-95 transition-transform p-2 rounded-2xl hover:bg-white/5"
+              >
+                <Monster
+                  monster={monsters[1]}
+                  isLeft={false}
+                  isAttacking={attackingMonster === 1}
+                  isHit={hitMonster === 1}
+                  boostEffect={boostEffect[1]}
+                />
+              </button>
+            </div>
+
+            {/* Tap hint */}
+            <div className="text-center text-amber-300/70 text-xs mb-3 animate-pulse">
+              Tap a monster to boost it!
+            </div>
+
+            {/* Battle log */}
+            <div className="h-16 overflow-y-auto bg-black/30 rounded-lg p-2 text-xs">
+              {battleLog.map(log => (
+                <p
+                  key={log.id}
+                  className={`${
+                    log.type === 'announcement' ? 'text-yellow-300 font-bold' :
+                    log.type === 'boost' ? 'text-cyan-300' :
+                    log.type === 'victory' ? 'text-green-400 font-bold' :
+                    'text-red-200/80'
+                  }`}
+                >
+                  {log.message}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {stage === 'result' && winner !== null && (
+          <div className="bg-slate-800/80 backdrop-blur rounded-2xl shadow-2xl p-6 border border-red-500/30">
+            <div className="text-center mb-4">
+              <div className={`text-6xl inline-block ${monsters[winner].color.glow} monster-glow float`}>
+                {monsters[winner].emoji}
+              </div>
+              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-400 mt-2">
+                Victory!
+              </h2>
+              <p className="text-red-200 mt-1">
+                <span className="font-semibold">"{choices[winner]}"</span> wins!
+              </p>
+            </div>
+
+            {/* Analysis */}
+            {(() => {
+              const analysis = getAnalysis();
+              if (!analysis) return (
+                <div className="bg-slate-700/50 rounded-xl p-4 mb-4">
+                  <p className="text-red-200/80 text-center text-sm">
+                    You didn't boost either monster. Try tapping them next time to reveal your preference!
+                  </p>
+                </div>
+              );
+
+              return (
+                <div className="bg-gradient-to-br from-purple-900/50 to-indigo-900/50 rounded-xl p-4 mb-4 border border-purple-500/30">
+                  <h3 className="text-purple-300 font-semibold text-center mb-3">
+                    What Your Heart Revealed
+                  </h3>
+
+                  <div className="flex justify-center gap-6 mb-3">
+                    <div className="text-center">
+                      <div className={`text-3xl ${monsters[0].color.glow} monster-glow`}>{monsters[0].emoji}</div>
+                      <p className="text-purple-200 font-bold text-lg">{analysis.boosts[0]}</p>
+                      <p className="text-purple-300/60 text-xs">boosts</p>
+                    </div>
+                    <div className="text-center">
+                      <div className={`text-3xl ${monsters[1].color.glow} monster-glow`}>{monsters[1].emoji}</div>
+                      <p className="text-purple-200 font-bold text-lg">{analysis.boosts[1]}</p>
+                      <p className="text-purple-300/60 text-xs">boosts</p>
+                    </div>
+                  </div>
+
+                  {analysis.isTie ? (
+                    <p className="text-purple-200 text-center text-sm">
+                      You boosted both equally. You're genuinely torn between these options!
+                    </p>
+                  ) : (
+                    <div className="text-center">
+                      <p className="text-purple-100 font-medium">
+                        You favored <span className="text-yellow-300">"{analysis.favoredChoice}"</span>
+                      </p>
+                      <p className="text-purple-200 text-sm">
+                        ({analysis.favoredPercent}% of your boosts)
+                      </p>
+                      <p className="text-purple-300/80 text-sm mt-2">
+                        {analysis.favoredPercent >= 75
+                          ? "Your instincts strongly pulled you toward this choice. Trust that feeling!"
+                          : analysis.favoredPercent >= 60
+                          ? "You showed a clear preference. Worth exploring why."
+                          : "A slight lean — you seem fairly balanced between the two."}
+                      </p>
+
+                      {analysis.favoredIndex !== winner && (
+                        <p className="text-amber-300/80 text-sm mt-3 italic">
+                          Interesting... you helped the loser more. Sometimes we protect what we secretly want to win.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            <button
+              onClick={reset}
+              className="w-full py-3 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold rounded-xl transition-all"
+            >
+              New Battle
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
