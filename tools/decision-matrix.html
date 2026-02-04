@@ -378,9 +378,14 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
         <h2 className="text-2xl font-bold text-gray-800">Decision Analysis</h2>
         <button onClick={goBack} className="text-sm text-cyan-600 hover:text-cyan-700">← Back</button>
       </div>
-      <p className="text-gray-500 mb-4 text-sm">
-        {actions.length} actions × {states.length} states
-      </p>
+      {/* Intro tip for new users */}
+      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+        <p className="font-medium mb-1">💡 How to read these results</p>
+        <p className="text-amber-700">
+          There's no single "right" answer — different strategies suit different people.
+          Use the slider below to see what fits your risk tolerance, then explore the other methods.
+        </p>
+      </div>
 
       {/* Hurwicz at the top with slider */}
       <div className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl p-4 mb-6">
@@ -388,16 +393,19 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
           <span className="text-2xl">⚖️</span>
           <div>
             <p className="font-semibold">Recommended Choice</p>
-            <p className="text-sm opacity-80">Hurwicz criterion — balance optimism vs caution</p>
+            <p className="text-sm opacity-80">Based on your risk preference</p>
           </div>
         </div>
 
         <p className="text-2xl font-bold my-3">{getBestAction(calculations.hurwicz)}</p>
 
         <div className="mt-4">
+          <p className="text-sm opacity-90 mb-2 text-center">
+            👆 Drag the slider to match your personality:
+          </p>
           <div className="flex justify-between text-sm mb-1">
-            <span>Cautious</span>
-            <span>Optimistic</span>
+            <span>🛡️ Cautious</span>
+            <span>🚀 Optimistic</span>
           </div>
           <input
             type="range"
@@ -407,13 +415,17 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
             onChange={(e) => setHurwiczAlpha(parseInt(e.target.value) / 100)}
             className="w-full"
           />
-          <p className="text-center text-sm opacity-80 mt-1">
-            α = {hurwiczAlpha.toFixed(2)} — {hurwiczAlpha < 0.3 ? 'Focus on worst cases' : hurwiczAlpha > 0.7 ? 'Focus on best cases' : 'Balanced view'}
+          <p className="text-center text-sm opacity-90 mt-2">
+            {hurwiczAlpha < 0.3
+              ? '"I want to protect against the worst case"'
+              : hurwiczAlpha > 0.7
+                ? '"I\'m willing to take risks for bigger rewards"'
+                : '"I want a balance of safety and opportunity"'}
           </p>
         </div>
 
         <div className="mt-3 pt-3 border-t border-white/20">
-          <p className="text-xs opacity-70 mb-2">Weighted utility scores (higher is better):</p>
+          <p className="text-xs opacity-70 mb-2">Scores for each option (higher = better):</p>
           <div className="space-y-1">
             {actions.map((action, idx) => {
               const result = calculations.hurwicz[idx];
@@ -428,7 +440,10 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
         </div>
       </div>
 
-      <p className="text-sm text-gray-500 mb-3">Other decision criteria:</p>
+      <div className="mb-3">
+        <p className="text-sm font-medium text-gray-700">Want to explore further?</p>
+        <p className="text-xs text-gray-500">These classic decision-making strategies offer different perspectives:</p>
+      </div>
 
       <div className="space-y-3">
         {/* Risk-Averse */}
