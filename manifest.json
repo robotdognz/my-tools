@@ -1,7 +1,7 @@
 {
-  "name": "My Tools",
-  "short_name": "Tools",
-  "description": "A collection of useful utilities",
+  "name": "Marco's Decision Tools",
+  "short_name": "Decision Tools",
+  "description": "Tools to help you make decisions",
   "start_url": "/my-tools/index.html",
   "scope": "/my-tools/",
   "id": "/my-tools/",

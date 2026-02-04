@@ -10,6 +10,7 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
     html, body, #root { height: 100%; margin: 0; overflow: hidden; }
@@ -96,7 +97,71 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
   const [phase, setPhase] = useState('ready'); // ready, shaking, eliminating, done
   const [eliminatingIdx, setEliminatingIdx] = useState(null);
   const [survivors, setSurvivors] = useState([]);
+  const [eliminationHistory, setEliminationHistory] = useState([]);
+  const [shareStatus, setShareStatus] = useState(null);
+  const shareCardRef = useRef(null);
   const timeoutRef = useRef(null);
+
+  const shareResults = async () => {
+    if (!shareCardRef.current) return;
+    setShareStatus('generating');
+
+    try {
+      const canvas = await html2canvas(shareCardRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+      });
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const file = new File([blob], 'elimination-result.png', { type: 'image/png' });
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Elimination Results',
+          text: survivors.length === 1 ? `Winner: ${survivors[0]}` : `Survivors: ${survivors.join(', ')}`,
+        });
+        setShareStatus('shared');
+      } else if (navigator.share) {
+        await navigator.share({
+          title: 'Choice Narrower Results',
+          text: survivors.length === 1
+            ? `The winner is: ${survivors[0]}\n\nMade with Marco's Tools`
+            : `Survivors: ${survivors.join(', ')}\n\nMade with Marco's Tools`,
+        });
+        setShareStatus('shared');
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'elimination-result.png';
+        a.click();
+        URL.revokeObjectURL(url);
+        setShareStatus('downloaded');
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        const text = survivors.length === 1 ? `Winner: ${survivors[0]}` : `Survivors: ${survivors.join(', ')}`;
+        await navigator.clipboard.writeText(text + '\nMade with Marco\'s Tools');
+        setShareStatus('copied');
+      } else {
+        setShareStatus(null);
+        return;
+      }
+    }
+    setTimeout(() => setShareStatus(null), 2500);
+  };
+
+  const getShareButtonText = () => {
+    switch (shareStatus) {
+      case 'generating': return '...';
+      case 'shared': return 'Shared';
+      case 'downloaded': return 'Saved';
+      case 'copied': return 'Copied';
+      default: return 'Share';
+    }
+  };
 
   useEffect(() => {
     // Initialize items with positions in a circle
@@ -109,6 +174,7 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
     }));
     setItems(initialItems);
     setSurvivors([]);
+    setEliminationHistory([]);
     setPhase('ready');
   }, [choices]);
 
@@ -142,6 +208,7 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
           setItems(prev => prev.map(item =>
             item.id === victim.id ? { ...item, alive: false } : item
           ));
+          setEliminationHistory(prev => [...prev, victim.id]);
           setEliminatingIdx(null);
 
           // Check if more to eliminate
@@ -166,6 +233,22 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
+
+  const handleUndo = () => {
+    if (eliminationHistory.length === 0) return;
+
+    const lastEliminatedId = eliminationHistory[eliminationHistory.length - 1];
+    setEliminationHistory(prev => prev.slice(0, -1));
+    setItems(prev => prev.map(item =>
+      item.id === lastEliminatedId ? { ...item, alive: true } : item
+    ));
+
+    // If we were done, go back to ready state
+    if (phase === 'done') {
+      setPhase('ready');
+      setSurvivors([]);
+    }
+  };
 
   const aliveItems = items.filter(item => item.alive);
   const deadItems = items.filter(item => !item.alive);
@@ -224,15 +307,28 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
 
       {/* Eliminated items (faded, below arena) */}
       {deadItems.filter(item => eliminatingIdx !== item.id).length > 0 && (
-        <div className="flex flex-wrap justify-center gap-1 mb-4 max-w-xs">
-          {deadItems.filter(item => eliminatingIdx !== item.id).map(item => (
-            <span
-              key={item.id}
-              className="text-xs text-gray-400 line-through px-2 py-1 bg-gray-100 rounded"
+        <div className="mb-4 max-w-xs">
+          <div className="flex flex-wrap justify-center gap-1 mb-2">
+            {deadItems.filter(item => eliminatingIdx !== item.id).map(item => (
+              <span
+                key={item.id}
+                className="text-xs text-gray-400 line-through px-2 py-1 bg-gray-100 rounded"
+              >
+                {item.text}
+              </span>
+            ))}
+          </div>
+          {(phase === 'ready' || phase === 'done') && eliminationHistory.length > 0 && (
+            <button
+              onClick={handleUndo}
+              className="text-xs text-violet-600 hover:text-violet-700 flex items-center gap-1 mx-auto"
             >
-              {item.text}
-            </span>
-          ))}
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+              Bring back last eliminated
+            </button>
+          )}
         </div>
       )}
 
@@ -248,6 +344,60 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
 
       {phase === 'done' && (
         <div className="text-center">
+          {/* Hidden share card */}
+          <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+            <div
+              ref={shareCardRef}
+              style={{
+                width: 400,
+                padding: 24,
+                background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                fontFamily: 'Arial, Helvetica, sans-serif',
+              }}
+            >
+              <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>🎉</div>
+                <div style={{ fontSize: 14, color: '#dc2626', marginBottom: 4, letterSpacing: 0 }}>
+                  {survivors.length === 1 ? 'The Winner Is' : 'The Survivors Are'}
+                </div>
+              </div>
+
+              <div style={{
+                background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                borderRadius: 12,
+                padding: 20,
+                textAlign: 'center',
+              }}>
+                {survivors.map((s, i) => (
+                  <div key={i} style={{
+                    fontSize: 20,
+                    fontWeight: 'bold',
+                    color: 'white',
+                    letterSpacing: 0,
+                    padding: i > 0 ? '8px 0 0 0' : 0,
+                  }}>{s}</div>
+                ))}
+              </div>
+
+              <div style={{
+                background: 'white',
+                borderRadius: 12,
+                padding: 12,
+                marginTop: 16,
+                fontSize: 11,
+                color: '#6b7280',
+                textAlign: 'center',
+                letterSpacing: 0,
+              }}>
+                {'Eliminated: '}{choices.filter(c => !survivors.includes(c)).join(', ')}
+              </div>
+
+              <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 16 }}>
+                {'Made with Marco\'s Tools'}
+              </div>
+            </div>
+          </div>
+
           <p className="text-gray-500 mb-4">
             {survivors.length === 1 ? 'The winner is:' : `The ${survivors.length} survivors are:`}
           </p>
@@ -258,12 +408,30 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
               </span>
             ))}
           </div>
-          <button
-            onClick={onReset}
-            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-colors"
-          >
-            Start Over
-          </button>
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={shareResults}
+              disabled={shareStatus === 'generating'}
+              className={`px-4 py-3 rounded-xl font-medium transition-colors flex items-center gap-2 ${
+                shareStatus && shareStatus !== 'generating'
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              }`}
+            >
+              {!shareStatus && (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+              )}
+              {getShareButtonText()}
+            </button>
+            <button
+              onClick={onReset}
+              className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-colors"
+            >
+              Start Over
+            </button>
+          </div>
         </div>
       )}
 

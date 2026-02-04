@@ -10,6 +10,7 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
     html, body, #root { height: 100%; margin: 0; overflow: hidden; }
@@ -258,7 +259,71 @@ function App() {
   const [battleSpeed, setBattleSpeed] = useState(800); // ms between attacks
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [shareStatus, setShareStatus] = useState(null);
+  const shareCardRef = useRef(null);
   const battleIntervalRef = useRef(null);
+
+  const shareResults = async () => {
+    if (!shareCardRef.current || winner === null) return;
+    setShareStatus('generating');
+
+    try {
+      const canvas = await html2canvas(shareCardRef.current, {
+        backgroundColor: null,
+        scale: 2,
+        logging: false,
+      });
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const file = new File([blob], 'battle-result.png', { type: 'image/png' });
+      const analysis = getAnalysis();
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Decision Battle Results',
+          text: `"${choices[winner]}" wins the battle!`,
+        });
+        setShareStatus('shared');
+      } else if (navigator.share) {
+        let text = `Decision Battle: "${choices[winner]}" wins!\n`;
+        if (analysis && !analysis.isTie) {
+          text += `My heart favored: "${analysis.favoredChoice}" (${analysis.favoredPercent}% of boosts)\n`;
+        }
+        text += '\nMade with Marco\'s Tools';
+        await navigator.share({ title: 'Decision Battle', text });
+        setShareStatus('shared');
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'battle-result.png';
+        a.click();
+        URL.revokeObjectURL(url);
+        setShareStatus('downloaded');
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        const text = `"${choices[winner]}" wins!\nMade with Marco's Tools`;
+        await navigator.clipboard.writeText(text);
+        setShareStatus('copied');
+      } else {
+        setShareStatus(null);
+        return;
+      }
+    }
+    setTimeout(() => setShareStatus(null), 2500);
+  };
+
+  const getShareButtonText = () => {
+    switch (shareStatus) {
+      case 'generating': return '...';
+      case 'shared': return 'Shared';
+      case 'downloaded': return 'Saved';
+      case 'copied': return 'Copied';
+      default: return 'Share';
+    }
+  };
 
   useEffect(() => {
     setHistory(loadHistory());
@@ -644,6 +709,80 @@ function App() {
 
         {stage === 'result' && winner !== null && (
           <div className="bg-slate-800/80 backdrop-blur rounded-2xl shadow-2xl p-6 border border-red-500/30">
+            {/* Hidden share card */}
+            <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+              <div
+                ref={shareCardRef}
+                style={{
+                  width: 400,
+                  padding: 24,
+                  background: 'linear-gradient(135deg, #1e293b 0%, #450a0a 100%)',
+                  fontFamily: 'Arial, Helvetica, sans-serif',
+                }}
+              >
+                <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                  <div style={{ fontSize: 48 }}>{monsters[winner].emoji}</div>
+                  <div style={{ fontSize: 20, fontWeight: 'bold', color: '#fbbf24', marginTop: 8, letterSpacing: 0 }}>{'Victory!'}</div>
+                  <div style={{ fontSize: 16, color: '#fecaca', marginTop: 4, letterSpacing: 0 }}>"{choices[winner]}" {'wins!'}</div>
+                </div>
+
+                {(() => {
+                  const analysis = getAnalysis();
+                  if (!analysis) return null;
+                  return (
+                    <div style={{
+                      background: 'rgba(88, 28, 135, 0.5)',
+                      borderRadius: 12,
+                      padding: 16,
+                      marginTop: 16,
+                    }}>
+                      <div style={{ fontSize: 12, color: '#c4b5fd', textAlign: 'center', marginBottom: 8, letterSpacing: 0 }}>{'What My Heart Revealed'}</div>
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: 32 }}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 24 }}>{monsters[0].emoji}</div>
+                          <div style={{ fontSize: 16, color: '#e9d5ff', fontWeight: 'bold' }}>{analysis.boosts[0]}</div>
+                          <div style={{ fontSize: 10, color: '#a78bfa', letterSpacing: 0 }}>{'boosts'}</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 24 }}>{monsters[1].emoji}</div>
+                          <div style={{ fontSize: 16, color: '#e9d5ff', fontWeight: 'bold' }}>{analysis.boosts[1]}</div>
+                          <div style={{ fontSize: 10, color: '#a78bfa', letterSpacing: 0 }}>{'boosts'}</div>
+                        </div>
+                      </div>
+                      {!analysis.isTie && (
+                        <div style={{ fontSize: 12, color: '#fef08a', textAlign: 'center', marginTop: 12, letterSpacing: 0 }}>
+                          {'Favored: "'}{analysis.favoredChoice}{'" ('}{analysis.favoredPercent}{'%)'}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 16 }}>
+                  {'Made with Marco\'s Tools'}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={shareResults}
+                disabled={shareStatus === 'generating'}
+                className={`text-sm px-3 py-1 rounded-lg transition-colors flex items-center gap-1 ${
+                  shareStatus && shareStatus !== 'generating'
+                    ? 'bg-green-900/50 text-green-400'
+                    : 'bg-slate-700/50 hover:bg-slate-600/50 text-red-200'
+                }`}
+              >
+                {!shareStatus && (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                )}
+                {getShareButtonText()}
+              </button>
+            </div>
+
             <div className="text-center mb-4">
               <div className={`text-6xl inline-block ${monsters[winner].color.glow} monster-glow float`}>
                 {monsters[winner].emoji}

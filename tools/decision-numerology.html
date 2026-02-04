@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Decision Numerology</title>
+  <meta name="theme-color" content="#7c3aed">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    html, body, #root { height: 100%; margin: 0; overflow: hidden; }
+    .allow-scroll { overflow: auto !important; }
+
+    @keyframes mystical-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(147, 51, 234, 0.5); }
+      50% { box-shadow: 0 0 40px rgba(147, 51, 234, 0.8), 0 0 60px rgba(236, 72, 153, 0.4); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    .mystical-card {
+      animation: mystical-glow 3s ease-in-out infinite;
+    }
+
+    .floating {
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .stars {
+      background-image:
+        radial-gradient(2px 2px at 20px 30px, white, transparent),
+        radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
+        radial-gradient(1px 1px at 90px 40px, white, transparent),
+        radial-gradient(2px 2px at 130px 80px, rgba(255,255,255,0.6), transparent),
+        radial-gradient(1px 1px at 160px 20px, white, transparent);
+      background-repeat: repeat;
+      background-size: 200px 100px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+// Root number meanings for decision guidance
+const ROOT_MEANINGS = {
+  1: { meaning: 'New beginnings, independence, leadership', energy: 'yang', element: 'fire' },
+  2: { meaning: 'Partnership, balance, diplomacy', energy: 'yin', element: 'water' },
+  3: { meaning: 'Creativity, expression, growth', energy: 'yang', element: 'fire' },
+  4: { meaning: 'Stability, foundation, hard work', energy: 'yin', element: 'earth' },
+  5: { meaning: 'Change, freedom, adventure', energy: 'yang', element: 'air' },
+  6: { meaning: 'Harmony, responsibility, love', energy: 'yin', element: 'earth' },
+  7: { meaning: 'Spirituality, wisdom, introspection', energy: 'yin', element: 'water' },
+  8: { meaning: 'Abundance, power, karma', energy: 'yang', element: 'earth' },
+  9: { meaning: 'Completion, wisdom, humanitarianism', energy: 'yang', element: 'fire' },
+  11: { meaning: 'Master number - intuition, illumination', energy: 'master', element: 'spirit' },
+  22: { meaning: 'Master number - master builder, dreams manifest', energy: 'master', element: 'spirit' },
+  33: { meaning: 'Master number - master teacher, compassion', energy: 'master', element: 'spirit' },
+};
+
+// The sacred constants and cosmic measurements
+const MAGIC_NUMBERS = [
+  // Mathematical constants
+  { value: Math.PI, name: 'Pi', symbol: 'π', category: 'mathematical', description: 'The ratio of a circle\'s circumference to its diameter' },
+  { value: (1 + Math.sqrt(5)) / 2, name: 'Golden Ratio', symbol: 'φ', category: 'mathematical', description: 'The divine proportion found throughout nature' },
+  { value: Math.E, name: 'Euler\'s Number', symbol: 'e', category: 'mathematical', description: 'The base of natural logarithms' },
+  { value: Math.sqrt(2), name: 'Pythagoras\' Constant', symbol: '√2', category: 'mathematical', description: 'The diagonal of a unit square' },
+  { value: Math.sqrt(3), name: 'Theodorus\' Constant', symbol: '√3', category: 'mathematical', description: 'Sacred to ancient geometers' },
+  { value: Math.sqrt(5), name: 'Root of Five', symbol: '√5', category: 'mathematical', description: 'Hidden within the Golden Ratio' },
+
+  // Astronomical measurements
+  { value: 299792458, name: 'Speed of Light', symbol: 'c', category: 'cosmic', description: 'Meters per second - the universe\'s speed limit' },
+  { value: 149597870.7, name: 'Earth-Sun Distance', symbol: 'AU', category: 'cosmic', description: 'Kilometers - one Astronomical Unit' },
+  { value: 384400, name: 'Earth-Moon Distance', symbol: '🌙', category: 'cosmic', description: 'Kilometers average' },
+  { value: 6371, name: 'Earth\'s Radius', symbol: '🌍', category: 'cosmic', description: 'Kilometers' },
+  { value: 365.25, name: 'Days in Year', symbol: '📅', category: 'cosmic', description: 'Earth\'s orbital period' },
+  { value: 27.3, name: 'Lunar Cycle', symbol: '🌕', category: 'cosmic', description: 'Days - sidereal month' },
+  { value: 29.5, name: 'Synodic Month', symbol: '🌓', category: 'cosmic', description: 'Days between full moons' },
+
+  // Sacred architecture
+  { value: 146.6, name: 'Great Pyramid Height', symbol: '△', category: 'ancient', description: 'Meters - original height' },
+  { value: 230.4, name: 'Great Pyramid Base', symbol: '▢', category: 'ancient', description: 'Meters per side' },
+  { value: 51.84, name: 'Pyramid Angle', symbol: '∠', category: 'ancient', description: 'Degrees - slope angle' },
+
+  // Sacred numbers
+  { value: 108, name: 'Sacred 108', symbol: '🕉️', category: 'mystical', description: 'Sun/Moon distance ratio, holy in Eastern traditions' },
+  { value: 432, name: 'Cosmic Frequency', symbol: '🎵', category: 'mystical', description: 'Hz - the "natural" tuning, Sun radius = 432,000 mi' },
+  { value: 144, name: 'Gross/Square of 12', symbol: '⬡', category: 'mystical', description: '12×12 - sacred in many traditions' },
+  { value: 666, name: 'Number of the Beast', symbol: '👹', category: 'mystical', description: 'Biblical number of significance' },
+  { value: 888, name: 'Jesus Number', symbol: '✝️', category: 'mystical', description: 'Greek gematria value of "Jesus"' },
+  { value: 137, name: 'Fine Structure', symbol: 'α', category: 'mystical', description: '1/α - the "magic number" of physics' },
+  { value: 7, name: 'Lucky Seven', symbol: '7️⃣', category: 'mystical', description: 'Days of creation, chakras, deadly sins' },
+  { value: 12, name: 'Cosmic Twelve', symbol: '🔯', category: 'mystical', description: 'Zodiac signs, apostles, months' },
+  { value: 13, name: 'Sacred Thirteen', symbol: '🌀', category: 'mystical', description: 'Lunar months, Mayan sacred number' },
+  { value: 40, name: 'Biblical Forty', symbol: '📜', category: 'mystical', description: 'Days of flood, years in desert' },
+  { value: 72, name: 'Precessional Degree', symbol: '✡️', category: 'mystical', description: 'Years per degree of precession, Names of God' },
+  { value: 360, name: 'Full Circle', symbol: '⭕', category: 'mystical', description: 'Degrees - Babylonian sacred number' },
+
+  // Precessional / Sacred Geometry
+  { value: 25920, name: 'Great Year', symbol: '🌀', category: 'ancient', description: 'Years for full precession of equinoxes' },
+  { value: 2160, name: 'Zodiac Age', symbol: '♈', category: 'ancient', description: 'Years per age, also Moon diameter in miles' },
+  { value: 43200, name: 'Pyramid Scale', symbol: '🔺', category: 'ancient', description: 'Great Pyramid to Earth ratio, half of 86,400' },
+  { value: 86400, name: 'Seconds per Day', symbol: '⏱️', category: 'cosmic', description: 'Seconds in 24 hours' },
+
+  // Physical constants
+  { value: 9.81, name: 'Earth Gravity', symbol: 'g', category: 'physics', description: 'Gravitational acceleration (m/s²)' },
+];
+
+// Key constants to use in equations
+const PI = Math.PI;
+const PHI = (1 + Math.sqrt(5)) / 2;
+const E = Math.E;
+const SQRT2 = Math.sqrt(2);
+const SQRT3 = Math.sqrt(3);
+
+const EQUATION_CONSTANTS = [
+  { value: PI, symbol: 'π', name: 'Pi' },
+  { value: PHI, symbol: 'φ', name: 'Golden Ratio' },
+  { value: E, symbol: 'e', name: "Euler's Number" },
+  { value: SQRT2, symbol: '√2', name: 'Root 2' },
+  { value: SQRT3, symbol: '√3', name: 'Root 3' },
+  { value: 7, symbol: '7', name: 'Sacred Seven' },
+  { value: 12, symbol: '12', name: 'Cosmic Twelve' },
+  { value: 72, symbol: '72', name: 'Precessional Degree' },
+  { value: 108, symbol: '108', name: 'Sacred 108' },
+  { value: 360, symbol: '360', name: 'Full Circle' },
+  { value: 432, symbol: '432', name: 'Cosmic Frequency' },
+  { value: 2160, symbol: '2160', name: 'Zodiac Age' },
+  { value: 43200, symbol: '43200', name: 'Pyramid Scale' },
+];
+
+// Sacred ratios to check between numbers
+const SACRED_RATIOS = [
+  { value: 108, name: 'Sun/Moon Distance Ratio', description: 'The cosmic 108 appears in celestial distances' },
+  { value: 43200, name: 'Pyramid Scale Factor', description: 'The Great Pyramid encodes Earth\'s dimensions' },
+  { value: 12, name: 'Zodiac Division', description: 'The universe divided into 12 houses' },
+  { value: 72, name: 'Precessional Slip', description: 'One degree every 72 years' },
+];
+
+// Explanations for symbols/constants used in equations
+const SYMBOL_EXPLANATIONS = {
+  'π': { symbol: 'π', name: 'Pi', explanation: 'Ratio of circle circumference to diameter (3.14159...)' },
+  'φ': { symbol: 'φ', name: 'Golden Ratio', explanation: 'The divine proportion found in nature and art (1.618...)' },
+  'e': { symbol: 'e', name: "Euler's Number", explanation: 'Base of natural logarithms (2.718...)' },
+  '√2': { symbol: '√2', name: 'Root 2', explanation: 'Diagonal of a unit square (1.414...)' },
+  '√3': { symbol: '√3', name: 'Root 3', explanation: 'Height of equilateral triangle (1.732...)' },
+  '7': { symbol: '7', name: 'Sacred Seven', explanation: 'Days of creation, chakras, musical notes' },
+  '12': { symbol: '12', name: 'Cosmic Twelve', explanation: 'Zodiac signs, apostles, months of the year' },
+  '72': { symbol: '72', name: 'Precessional Degree', explanation: 'Years for Earth\'s axis to shift 1° (25,920 ÷ 360)' },
+  '108': { symbol: '108', name: 'Sacred 108', explanation: 'Sun is 108× its diameter from Earth; same for Moon' },
+  '360': { symbol: '360', name: 'Full Circle', explanation: 'Degrees in a circle, Babylonian base-60 sacred number' },
+  '432': { symbol: '432', name: 'Cosmic Frequency', explanation: 'Natural tuning Hz; Sun radius ≈ 432,000 miles' },
+  '2160': { symbol: '2160', name: 'Zodiac Age', explanation: 'Years per astrological age; Moon diameter in miles' },
+  '43200': { symbol: '43200', name: 'Pyramid Scale', explanation: 'Scale factor linking Great Pyramid dimensions to Earth' },
+};
+
+// Find which constants appear in an equation string
+function findConstantsInEquation(equation) {
+  const found = [];
+  const sortedEntries = Object.entries(SYMBOL_EXPLANATIONS).sort((a, b) => b[0].length - a[0].length);
+  for (const [key, info] of sortedEntries) {
+    const isNumeric = /^\d+$/.test(key);
+    if (isNumeric) {
+      const regex = new RegExp(`(^|[^0-9])${key}([^0-9]|$)`);
+      if (regex.test(equation)) found.push(info);
+    } else {
+      if (equation.includes(key)) found.push(info);
+    }
+  }
+  return found;
+}
+
+// Find magic connections in numbers
+function findMagic(numbers) {
+  const results = [];
+  const tolerance = 0.005;
+  const multiplesTolerance = 0.002;
+
+  function isNiceNumber(val) {
+    if (!isFinite(val) || isNaN(val) || val === 0) return null;
+    for (const magic of MAGIC_NUMBERS) {
+      const error = Math.abs(val / magic.value - 1);
+      if (error < tolerance) {
+        return { value: magic.value, display: magic.symbol, name: magic.name, type: 'magic', error, magic };
+      }
+    }
+    const keyConstants = [Math.PI, PHI, E];
+    const keyMagic = MAGIC_NUMBERS.filter(m => keyConstants.some(k => Math.abs(m.value - k) < 0.0001));
+    for (const magic of keyMagic) {
+      for (const mult of [2, 10]) {
+        const err2 = Math.abs(val / (magic.value * mult) - 1);
+        if (err2 < multiplesTolerance) {
+          return { value: magic.value * mult, display: `${mult} × ${magic.symbol}`, name: `${mult} × ${magic.name}`, type: 'magic', error: err2, magic };
+        }
+      }
+    }
+    return null;
+  }
+
+  function tryEquation(equation, result, numCount, description, intermediateValue = null) {
+    if (!isFinite(result) || isNaN(result)) return;
+    if (intermediateValue !== null) {
+      const intAbs = Math.abs(intermediateValue);
+      if (intAbs > 0.8 && intAbs < 1.25) return;
+    }
+    const nice = isNiceNumber(result);
+    if (nice && nice.type === 'magic') {
+      const resultPattern = nice.display.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const circularRegex = new RegExp(`(^|\\s|×|÷|\\()${resultPattern}(\\s|×|÷|\\)|$)`);
+      if (circularRegex.test(equation)) return;
+      results.push({
+        equation, result: nice.display, resultName: nice.name,
+        accuracy: ((1 - nice.error) * 100).toFixed(2), description,
+        numbersInvolved: numCount, magic: nice.magic,
+        mysteryLevel: numCount >= 4 ? 'ULTIMATE CONVERGENCE' : numCount >= 3 ? 'TRANSCENDENT' : nice.error < 0.001 ? 'INCREDIBLE' : 'DISCOVERED'
+      });
+    }
+  }
+
+  const n = numbers.length;
+
+  // Single number analysis
+  for (let i = 0; i < n; i++) {
+    const a = numbers[i];
+    if (a === 0) continue;
+    tryEquation(`${a}`, a, 1, 'A number of cosmic significance');
+    for (const c of EQUATION_CONSTANTS) {
+      tryEquation(`${a} × ${c.symbol}`, a * c.value, 1, `Multiplied by ${c.name}`, a);
+      tryEquation(`${a} ÷ ${c.symbol}`, a / c.value, 1, `Divided by ${c.name}`, a / c.value);
+      if (Math.abs(a) > c.value * 0.1) {
+        tryEquation(`${a} + ${c.symbol}`, a + c.value, 1, `${c.name} added`);
+        tryEquation(`${a} − ${c.symbol}`, a - c.value, 1, `${c.name} subtracted`);
+      }
+      if (a > 1) tryEquation(`${c.symbol} ^ ${a}`, Math.pow(c.value, a), 1, `${c.name} raised to this power`);
+    }
+    tryEquation(`√${a}`, Math.sqrt(a), 1, 'The square root reveals hidden truth');
+    tryEquation(`${a}²`, a * a, 1, 'Squared, it transforms');
+    if (a > 0 && a < 100) tryEquation(`${a}³`, a * a * a, 1, 'Cubed, it ascends');
+    if (a > 0 && a <= 10 && Number.isInteger(a)) {
+      let fact = 1;
+      for (let j = 2; j <= a; j++) fact *= j;
+      tryEquation(`${a}!`, fact, 1, 'Factorial unlocks deeper meaning');
+    }
+    tryEquation(`${a} × π × φ`, a * PI * PHI, 1, 'Pi and Phi together transform', a);
+  }
+
+  // Two-number relationships
+  if (n >= 2) {
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        if (i === j) continue;
+        const a = numbers[i], b = numbers[j];
+        if (a === 0 || b === 0) continue;
+
+        // Direct relationships
+        tryEquation(`${a} ÷ ${b}`, a / b, 2, 'The ratio reveals a sacred proportion');
+        tryEquation(`${a} × ${b}`, a * b, 2, 'Their product unveils cosmic significance');
+        tryEquation(`${a} + ${b}`, a + b, 2, 'United, they form a sacred sum');
+        tryEquation(`${a} − ${b}`, a - b, 2, 'Their difference echoes through the cosmos');
+
+        // Sacred ratio checks
+        for (const ratio of SACRED_RATIOS) {
+          tryEquation(`${a} ÷ ${b} × ${ratio.value}`, (a / b) * ratio.value, 2, ratio.description, a / b);
+          tryEquation(`(${a} − ${b}) × ${ratio.value}`, (a - b) * ratio.value, 2, ratio.description, a - b);
+        }
+
+        // Precessional equations
+        tryEquation(`${a} × ${b} ÷ 12`, (a * b) / 12, 2, 'Divided by the Zodiac reveals hidden order');
+        tryEquation(`${a} × ${b} ÷ 360`, (a * b) / 360, 2, 'The full circle divides their product');
+        tryEquation(`(${a} + ${b}) × 72`, (a + b) * 72, 2, 'Precessional years amplify the sum');
+        tryEquation(`(${a} + ${b}) × 2160`, (a + b) * 2160, 2, 'A Zodiac Age magnifies their union');
+        tryEquation(`${a} × 43200 ÷ ${b}`, (a * 43200) / b, 2, 'The Pyramid Scale reveals Earth\'s encoding', a / b);
+
+        // With ALL equation constants
+        for (const c of EQUATION_CONSTANTS) {
+          tryEquation(`(${a} + ${b}) ÷ ${c.symbol}`, (a + b) / c.value, 2, `Divided by ${c.name}, the sum transforms`, (a + b) / c.value);
+          tryEquation(`(${a} + ${b}) × ${c.symbol}`, (a + b) * c.value, 2, `Multiplied by ${c.name}, harmony emerges`, a + b);
+          tryEquation(`(${a} × ${b}) ÷ ${c.symbol}`, (a * b) / c.value, 2, `The product, scaled by ${c.name}`, (a * b) / c.value);
+          tryEquation(`(${a} − ${b}) × ${c.symbol}`, (a - b) * c.value, 2, `Their difference, amplified by ${c.name}`, a - b);
+          tryEquation(`${a} ÷ ${b} × ${c.symbol}`, (a / b) * c.value, 2, `The ratio, blessed by ${c.name}`, a / b);
+          tryEquation(`(${a} + ${b}) ÷ ${c.symbol}²`, (a + b) / (c.value * c.value), 2, `Divided by ${c.name} squared`, (a + b) / (c.value * c.value));
+          tryEquation(`√(${a} × ${b}) ÷ ${c.symbol}`, Math.sqrt(a * b) / c.value, 2, `Their geometric mean divided by ${c.name}`, Math.sqrt(a * b) / c.value);
+          tryEquation(`(${a}² + ${b}²) ÷ ${c.symbol}`, (a*a + b*b) / c.value, 2, `Sum of squares over ${c.name}`, (a*a + b*b) / c.value);
+          tryEquation(`(${a} × ${c.symbol}) ÷ ${b}`, (a * c.value) / b, 2, `${c.name} mediates between them`, a / b);
+        }
+
+        // Double constants
+        tryEquation(`(${a} ÷ ${b}) × π × φ`, (a / b) * PI * PHI, 2, 'Pi and Phi amplify their ratio', a / b);
+        tryEquation(`(${a} + ${b}) ÷ (π × φ)`, (a + b) / (PI * PHI), 2, 'The sacred product divides their sum', (a + b) / (PI * PHI));
+        tryEquation(`(${a} × ${b}) ÷ (π × e)`, (a * b) / (PI * E), 2, 'Pi and e unlock their product', (a * b) / (PI * E));
+        tryEquation(`√(${a}² + ${b}²) ÷ π`, Math.sqrt(a*a + b*b) / PI, 2, 'Pythagorean distance over Pi', Math.sqrt(a*a + b*b) / PI);
+      }
+    }
+  }
+
+  // Three-number relationships
+  if (n >= 3) {
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        for (let k = j + 1; k < n; k++) {
+          const a = numbers[i], b = numbers[j], c = numbers[k];
+          if (a === 0 || b === 0 || c === 0) continue;
+
+          tryEquation(`${a} + ${b} + ${c}`, a + b + c, 3, 'The trinity combines');
+          tryEquation(`${a} × ${b} × ${c}`, a * b * c, 3, 'Triple product reveals truth');
+          tryEquation(`(${a} + ${b}) × ${c}`, (a + b) * c, 3, 'Sum times third');
+          tryEquation(`(${a} × ${b}) + ${c}`, (a * b) + c, 3, 'Product plus third');
+          tryEquation(`(${a} + ${b}) ÷ ${c}`, (a + b) / c, 3, 'Sum over third reveals proportion');
+          tryEquation(`(${a} × ${b}) ÷ ${c}`, (a * b) / c, 3, 'Product over third');
+          tryEquation(`${a} × ${b} ÷ ${c}`, a * b / c, 3, 'Chained division');
+          tryEquation(`(${a} − ${b}) × ${c}`, (a - b) * c, 3, 'Difference amplified');
+
+          for (const con of EQUATION_CONSTANTS.slice(0, 8)) {
+            tryEquation(`(${a} + ${b} + ${c}) ÷ ${con.symbol}`, (a + b + c) / con.value, 3, `Trinity divided by ${con.name}`, (a + b + c) / con.value);
+            tryEquation(`(${a} × ${b} × ${c}) ÷ ${con.symbol}`, (a * b * c) / con.value, 3, `Triple product over ${con.name}`, (a * b * c) / con.value);
+            tryEquation(`(${a} + ${b}) × ${c} ÷ ${con.symbol}`, (a + b) * c / con.value, 3, `Combined and scaled by ${con.name}`, (a + b) * c / con.value);
+            tryEquation(`(${a} × ${b} + ${c}) × ${con.symbol}`, (a * b + c) * con.value, 3, `${con.name} amplifies the pattern`, a * b + c);
+            tryEquation(`(${a} × ${b}) ÷ (${c} × ${con.symbol})`, (a * b) / (c * con.value), 3, `Double division with ${con.name}`, (a * b) / c);
+          }
+
+          // Complex equations
+          tryEquation(`(${a} × ${b}) ÷ ${c} × π`, (a * b / c) * PI, 3, 'Pi completes the equation', a * b / c);
+          tryEquation(`(${a} + ${b} × ${c}) ÷ φ`, (a + b * c) / PHI, 3, 'Golden Ratio divides the sum', (a + b * c) / PHI);
+          tryEquation(`√(${a}² + ${b}² + ${c}²)`, Math.sqrt(a*a + b*b + c*c), 3, '3D Pythagorean distance');
+          tryEquation(`(${a} + ${b}) × (${a} + ${c}) ÷ (${b} × ${c})`, (a+b)*(a+c)/(b*c), 3, 'A symmetric dance');
+        }
+      }
+    }
+  }
+
+  // All numbers combined
+  if (n >= 2) {
+    const sum = numbers.reduce((a, b) => a + b, 0);
+    const product = numbers.reduce((a, b) => a * b, 1);
+    const sumStr = numbers.join(' + ');
+    const prodStr = numbers.join(' × ');
+    tryEquation(`${sumStr}`, sum, n, 'All numbers unite');
+    if (n <= 4) tryEquation(`${prodStr}`, product, n, 'All numbers multiply');
+    tryEquation(`(${sumStr}) ÷ π`, sum / PI, n, 'Total divided by Pi', sum / PI);
+    tryEquation(`(${sumStr}) ÷ φ`, sum / PHI, n, 'Total divided by Phi', sum / PHI);
+    tryEquation(`√(${sumStr})`, Math.sqrt(sum), n, 'Square root of total');
+  }
+
+  // Filter and sort
+  const seenEquations = new Set();
+  const seenResults = new Set();
+  const filtered = results
+    .sort((a, b) => b.numbersInvolved !== a.numbersInvolved ? b.numbersInvolved - a.numbersInvolved : parseFloat(b.accuracy) - parseFloat(a.accuracy))
+    .filter(r => {
+      const eqKey = `${r.equation}-${r.result}`;
+      if (seenEquations.has(eqKey)) return false;
+      seenEquations.add(eqKey);
+      const resultKey = `${r.resultName}-${r.numbersInvolved}`;
+      if (seenResults.has(resultKey)) return false;
+      seenResults.add(resultKey);
+      return true;
+    });
+
+  return {
+    multiNumber: filtered.filter(r => r.numbersInvolved >= 2).slice(0, 20),
+    singleNumber: filtered.filter(r => r.numbersInvolved === 1).slice(0, 15)
+  };
+}
+
+const CATEGORY_COLORS = {
+  mathematical: 'from-blue-500 to-cyan-500',
+  cosmic: 'from-purple-500 to-pink-500',
+  ancient: 'from-amber-600 to-yellow-500',
+  mystical: 'from-violet-500 to-purple-500',
+  physics: 'from-green-500 to-teal-500',
+};
+
+const MYSTERY_COLORS = {
+  'ULTIMATE CONVERGENCE': 'bg-yellow-200 text-yellow-900 border-yellow-400 font-bold',
+  TRANSCENDENT: 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300',
+  INCREDIBLE: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  DISCOVERED: 'bg-purple-100 text-purple-800 border-purple-300',
+};
+
+// Reusable component for displaying a finding
+function FindingCard({ finding, compact = false }) {
+  const constants = findConstantsInEquation(finding.equation);
+  return (
+    <div
+      className={`${compact ? 'p-2' : 'p-3'} rounded-xl bg-gradient-to-r ${CATEGORY_COLORS[finding.magic?.category] || 'from-gray-500 to-gray-600'} bg-opacity-10 border border-white/10`}
+      style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02))' }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            <span className={compact ? 'text-base' : 'text-lg'}>{finding.magic?.symbol || '✨'}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full border ${MYSTERY_COLORS[finding.mysteryLevel] || 'bg-purple-100 text-purple-800 border-purple-300'}`}>
+              {finding.mysteryLevel}
+            </span>
+          </div>
+          <p className={`text-purple-100 font-mono ${compact ? 'text-xs' : 'text-sm'} bg-slate-800/50 rounded-lg px-3 py-2 overflow-x-auto`}>
+            {finding.equation} = <span className="text-yellow-300 font-bold">{finding.result}</span>
+          </p>
+          {!compact && constants.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {constants.map((c, i) => (
+                <p key={i} className="text-purple-300/60 text-xs">
+                  <span className="text-purple-200 font-mono">{c.symbol}</span> = {c.explanation}
+                </p>
+              ))}
+            </div>
+          )}
+          <p className={`text-purple-300/80 ${compact ? 'text-xs' : 'text-sm'} mt-2`}>
+            → {finding.resultName || finding.result}
+            {finding.magic?.value && (
+              <span className="text-purple-400/60 ml-1">({finding.magic.value.toLocaleString()})</span>
+            )}
+          </p>
+          {!compact && (
+            <p className="text-purple-400/50 text-xs mt-1 italic">{finding.magic?.description || finding.description}</p>
+          )}
+        </div>
+        <div className="text-right flex-shrink-0">
+          <div className={`text-green-400 font-bold ${compact ? 'text-base' : 'text-lg'}`}>{finding.accuracy}%</div>
+          <div className="text-purple-400/50 text-xs">precision</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const GUIDANCE_PHRASES = [
+  "The universe whispers in favor of",
+  "Cosmic alignment points toward",
+  "The stars illuminate the path of",
+  "Ancient wisdom suggests",
+  "The numbers speak clearly of",
+  "Mystical forces align with",
+  "The cosmos gently guides you to",
+  "Numerological energy favors",
+];
+
+// Reduce number to single digit (or master number)
+function reduceToRoot(num) {
+  if (num === 11 || num === 22 || num === 33) return num;
+  while (num > 9) {
+    num = String(num).split('').reduce((a, b) => a + parseInt(b), 0);
+    if (num === 11 || num === 22 || num === 33) return num;
+  }
+  return num;
+}
+
+// Calculate numerology score for a set of numbers
+function calculateNumerologyScore(numbers) {
+  if (numbers.length === 0) return { score: 0, rootNumber: 0, details: [], findings: { multiNumber: [], singleNumber: [] } };
+
+  const sum = numbers.reduce((a, b) => a + Math.abs(b), 0);
+  const rootNumber = reduceToRoot(sum);
+
+  // Run the magic finder to get cosmic connections
+  const findings = findMagic(numbers);
+
+  // Calculate score based on findings
+  let score = 0;
+  const details = [];
+
+  // Base score from root number
+  score += rootNumber * 10;
+  details.push({ text: `Root number ${rootNumber}`, points: rootNumber * 10 });
+
+  // Bonus for master numbers
+  if (rootNumber === 11 || rootNumber === 22 || rootNumber === 33) {
+    score += 50;
+    details.push({ text: `Master number bonus`, points: 50 });
+  }
+
+  // Score from findings - multi-number connections are worth more
+  const multiBonus = findings.multiNumber.length * 15;
+  const singleBonus = findings.singleNumber.length * 5;
+  score += multiBonus + singleBonus;
+
+  // Bonus for high-precision findings (>99.5%)
+  const incredibleFindings = [...findings.multiNumber, ...findings.singleNumber].filter(f => parseFloat(f.accuracy) > 99.5);
+  if (incredibleFindings.length > 0) {
+    const bonus = incredibleFindings.length * 20;
+    score += bonus;
+  }
+
+  // Get the best finding for the teaser
+  const bestFinding = findings.multiNumber[0] || findings.singleNumber[0];
+  if (bestFinding) {
+    details.push({ text: `${bestFinding.equation} = ${bestFinding.result}`, points: 0, isFinding: true });
+  }
+
+  return { score, rootNumber, details, sum, findings };
+}
+
+const STORAGE_KEY = 'decision-numerology-history';
+
+function loadHistory() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+}
+
+function saveToHistory(reading, originalChoices, originalNumberInputs) {
+  try {
+    const history = loadHistory();
+    const entry = {
+      ...reading,
+      originalChoices,
+      originalNumberInputs,
+      timestamp: Date.now(),
+      id: Date.now().toString(),
+    };
+    history.unshift(entry);
+    // Keep last 10 readings
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(0, 10)));
+  } catch {}
+}
+
+function App() {
+  const [stage, setStage] = useState('choices'); // choices, numbers, reading, history
+  const [choices, setChoices] = useState(['', '']);
+  const [choiceNumbers, setChoiceNumbers] = useState([[], []]);
+  const [numberInputs, setNumberInputs] = useState(['', '']);
+  const [currentChoice, setCurrentChoice] = useState(0);
+  const [results, setResults] = useState(null);
+  const [isReading, setIsReading] = useState(false);
+  const [shareStatus, setShareStatus] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [singleMode, setSingleMode] = useState(false);
+  const shareCardRef = useRef(null);
+
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
+
+  const handleChoicesSubmit = () => {
+    const validChoices = choices.filter(c => c.trim().length > 0);
+    if (validChoices.length === 0) {
+      alert('Please enter at least 1 choice');
+      return;
+    }
+    setSingleMode(validChoices.length === 1);
+    setStage('numbers');
+    setCurrentChoice(0);
+  };
+
+  const handleNumbersSubmit = () => {
+    const nums = numberInputs[currentChoice]
+      .split(/[\s,\n]+/)
+      .map(s => parseFloat(s.trim()))
+      .filter(n => !isNaN(n));
+
+    const newChoiceNumbers = [...choiceNumbers];
+    newChoiceNumbers[currentChoice] = nums;
+    setChoiceNumbers(newChoiceNumbers);
+
+    if (currentChoice < choices.filter(c => c.trim()).length - 1) {
+      setCurrentChoice(currentChoice + 1);
+    } else {
+      // All numbers entered, do the reading
+      performReading(newChoiceNumbers);
+    }
+  };
+
+  const performReading = (allNumbers) => {
+    setIsReading(true);
+
+    setTimeout(() => {
+      const validChoices = choices.filter(c => c.trim().length > 0);
+      const scores = allNumbers.slice(0, validChoices.length).map((nums, idx) => ({
+        choice: validChoices[idx],
+        ...calculateNumerologyScore(nums),
+        numbers: nums,
+      }));
+
+      // Sort by score descending (only matters for multiple choices)
+      if (scores.length > 1) {
+        scores.sort((a, b) => b.score - a.score);
+      }
+
+      // Calculate confidence based on score difference
+      const topScore = scores[0]?.score || 0;
+      const secondScore = scores[1]?.score || 0;
+      const confidence = scores.length === 1
+        ? Math.min(95, 50 + (topScore / 200) * 45)
+        : topScore > 0
+          ? Math.min(95, 50 + ((topScore - secondScore) / topScore) * 45)
+          : 50;
+
+      const reading = {
+        scores,
+        winner: scores[0],
+        confidence: Math.round(confidence),
+        guidancePhrase: scores.length === 1
+          ? "The cosmos reveals about"
+          : GUIDANCE_PHRASES[Math.floor(Math.random() * GUIDANCE_PHRASES.length)],
+        isSingleMode: scores.length === 1,
+      };
+
+      setResults(reading);
+      saveToHistory(reading, choices, numberInputs);
+      setHistory(loadHistory());
+
+      setIsReading(false);
+      setStage('reading');
+    }, 2000);
+  };
+
+  const shareResults = async () => {
+    if (!shareCardRef.current || !results) return;
+    setShareStatus('generating');
+
+    try {
+      const canvas = await html2canvas(shareCardRef.current, {
+        backgroundColor: null,
+        scale: 2,
+        logging: false,
+      });
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const file = new File([blob], 'numerology-reading.png', { type: 'image/png' });
+
+      const shareText = results.isSingleMode
+        ? `Numerology reading for: ${results.winner.choice} (Root: ${results.winner.rootNumber})`
+        : `The cosmos chose: ${results.winner.choice}`;
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Decision Numerology Reading',
+          text: shareText,
+        });
+        setShareStatus('shared');
+      } else if (navigator.share) {
+        await navigator.share({
+          title: 'Decision Numerology',
+          text: shareText + '\n\nMade with Marco\'s Tools',
+        });
+        setShareStatus('shared');
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'numerology-reading.png';
+        a.click();
+        URL.revokeObjectURL(url);
+        setShareStatus('downloaded');
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        const fallbackText = results.isSingleMode
+          ? `Numerology reading for: ${results.winner.choice} (Root: ${results.winner.rootNumber})\nMade with Marco's Tools`
+          : `The cosmos chose: ${results.winner.choice}\nMade with Marco's Tools`;
+        await navigator.clipboard.writeText(fallbackText);
+        setShareStatus('copied');
+      } else {
+        setShareStatus(null);
+        return;
+      }
+    }
+    setTimeout(() => setShareStatus(null), 2500);
+  };
+
+  const reset = () => {
+    setStage('choices');
+    setChoices(['', '']);
+    setChoiceNumbers([[], []]);
+    setNumberInputs(['', '']);
+    setCurrentChoice(0);
+    setResults(null);
+    setSingleMode(false);
+  };
+
+  const loadFromHistory = (reading, editMode = false) => {
+    if (editMode && reading.originalChoices && reading.originalNumberInputs) {
+      // Load back into edit mode
+      setChoices(reading.originalChoices);
+      setNumberInputs(reading.originalNumberInputs);
+      setSingleMode(reading.isSingleMode || reading.scores.length === 1);
+      setStage('numbers');
+    } else {
+      // Just view the results
+      setResults(reading);
+      setSingleMode(reading.isSingleMode || reading.scores.length === 1);
+      setStage('reading');
+    }
+  };
+
+  const clearHistory = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setHistory([]);
+  };
+
+  const formatDate = (timestamp) => {
+    const d = new Date(timestamp);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return d.toLocaleDateString();
+  };
+
+  const validChoices = choices.filter(c => c.trim().length > 0);
+
+  return (
+    <div className="h-full bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-4 flex items-center justify-center overflow-auto stars">
+      <a href="/my-tools/" className="absolute top-4 left-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors">
+        <svg className="w-5 h-5 text-purple-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      </a>
+
+      <div className="w-full max-w-xl my-auto pt-12">
+        {stage === 'choices' && (
+          <div className="bg-slate-900/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border border-purple-500/30">
+            <div className="text-center mb-6">
+              <span className="text-4xl floating inline-block">🔮</span>
+              <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mt-2">
+                Decision Numerology
+              </h1>
+              <p className="text-purple-300/70 text-sm mt-1">
+                Let the cosmos guide your choice through sacred numbers
+              </p>
+            </div>
+
+            <div className="bg-purple-900/30 rounded-xl p-4 mb-4 text-sm text-purple-200/80">
+              <p className="font-medium text-purple-200 mb-2">How it works:</p>
+              <ol className="list-decimal list-inside space-y-1 text-purple-300/70">
+                <li>Enter one or more choices below</li>
+                <li>Provide numbers connected to each choice</li>
+                <li>Receive your numerological reading</li>
+              </ol>
+              <p className="text-purple-400/60 text-xs mt-2 italic">
+                Tip: Use just one choice to get a numerology reading on any set of numbers
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {choices.map((choice, idx) => (
+                <div key={idx} className="relative">
+                  <label className="text-purple-300/70 text-sm mb-1 block">
+                    {choices.length === 1 ? 'Topic / Choice' : `Choice ${idx + 1}`}
+                    {idx > 0 && choices.length > 1 && (
+                      <button
+                        onClick={() => {
+                          const newChoices = choices.filter((_, i) => i !== idx);
+                          const newInputs = numberInputs.filter((_, i) => i !== idx);
+                          setChoices(newChoices);
+                          setNumberInputs(newInputs);
+                        }}
+                        className="ml-2 text-purple-400/50 hover:text-purple-300 text-xs"
+                      >
+                        remove
+                      </button>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    value={choice}
+                    onChange={(e) => {
+                      const newChoices = [...choices];
+                      newChoices[idx] = e.target.value;
+                      setChoices(newChoices);
+                    }}
+                    placeholder={choices.length === 1 ? "e.g., My lucky numbers" : (idx === 0 ? "e.g., Take the new job" : "e.g., Stay at current job")}
+                    className="w-full p-3 bg-slate-800/50 border border-purple-500/30 rounded-xl text-purple-100 placeholder-purple-400/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  />
+                </div>
+              ))}
+
+              {choices.length < 4 && (
+                <button
+                  onClick={() => {
+                    setChoices([...choices, '']);
+                    setNumberInputs([...numberInputs, '']);
+                  }}
+                  className="text-sm text-purple-400 hover:text-purple-300"
+                >
+                  + Add another choice
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={handleChoicesSubmit}
+              className="w-full mt-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-purple-500/25"
+            >
+              Continue to Numbers
+            </button>
+
+            {history.length > 0 && (
+              <button
+                onClick={() => setStage('history')}
+                className="w-full mt-3 py-2 bg-slate-700/50 hover:bg-slate-600/50 text-purple-300 text-sm rounded-xl transition-all"
+              >
+                View Past Readings ({history.length})
+              </button>
+            )}
+          </div>
+        )}
+
+        {stage === 'history' && (
+          <div className="bg-slate-900/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border border-purple-500/30 max-h-[85vh] overflow-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-purple-200">Past Readings</h2>
+              <button
+                onClick={() => setStage('choices')}
+                className="text-sm text-purple-400 hover:text-purple-300"
+              >
+                ← Back
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {history.map((reading) => (
+                <div
+                  key={reading.id}
+                  className="p-4 bg-slate-800/50 rounded-xl border border-purple-500/20"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <div className="font-medium text-purple-200">
+                        {reading.winner?.choice || 'Reading'}
+                      </div>
+                      <div className="text-xs text-purple-400/70 mt-1">
+                        {reading.scores?.length === 1 ? 'Single reading' : `${reading.scores?.length || 0} choices`}
+                        {' • '}{reading.winner?.score || 0} pts
+                        {reading.winner?.findings?.multiNumber?.length > 0 && (
+                          <span className="text-purple-300"> • {reading.winner.findings.multiNumber.length} equations</span>
+                        )}
+                      </div>
+                      {reading.winner?.numbers && (
+                        <div className="text-xs text-purple-500/60 mt-1 font-mono">
+                          {reading.winner.numbers.slice(0, 5).join(', ')}{reading.winner.numbers.length > 5 ? '...' : ''}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-xs text-purple-400/50">
+                      {formatDate(reading.timestamp)}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={() => loadFromHistory(reading, false)}
+                      className="flex-1 py-2 text-sm bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 rounded-lg transition-colors"
+                    >
+                      View Results
+                    </button>
+                    {reading.originalChoices && (
+                      <button
+                        onClick={() => loadFromHistory(reading, true)}
+                        className="flex-1 py-2 text-sm bg-slate-700/50 hover:bg-slate-600/50 text-purple-300 rounded-lg transition-colors"
+                      >
+                        Edit & Rerun
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={clearHistory}
+              className="w-full mt-4 py-2 text-sm text-red-400/70 hover:text-red-300 transition-colors"
+            >
+              Clear History
+            </button>
+          </div>
+        )}
+
+        {stage === 'numbers' && (
+          <div className="bg-slate-900/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border border-purple-500/30 max-h-[85vh] overflow-auto">
+            <div className="text-center mb-4">
+              <span className="text-3xl">🌟</span>
+              <h2 className="text-xl font-bold text-purple-200 mt-1">
+                Enter Your Numbers
+              </h2>
+              <p className="text-purple-400/70 text-sm mt-1">
+                Add numbers that feel connected to each choice
+              </p>
+            </div>
+
+            <div className="bg-purple-900/30 rounded-xl p-3 mb-4 text-xs text-purple-300/70">
+              <p className="font-medium text-purple-200 mb-1">What numbers to enter:</p>
+              <p>Dates, addresses, lucky numbers, prices, quantities — anything meaningful</p>
+            </div>
+
+            <div className="space-y-4">
+              {validChoices.map((choice, idx) => (
+                <div key={idx} className="bg-slate-800/30 rounded-xl p-4 border border-purple-500/20">
+                  <label className="text-purple-200 text-sm font-medium mb-2 block">
+                    {choice}
+                  </label>
+                  <textarea
+                    value={numberInputs[idx] || ''}
+                    onChange={(e) => {
+                      const newInputs = [...numberInputs];
+                      newInputs[idx] = e.target.value;
+                      setNumberInputs(newInputs);
+                    }}
+                    placeholder="Enter numbers (e.g., 1985, 7, 23)"
+                    className="w-full h-20 p-3 bg-slate-800/50 border border-purple-500/30 rounded-lg text-purple-100 placeholder-purple-400/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none text-sm"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <p className="text-purple-400/50 text-xs mt-3 text-center">
+              Separate numbers with spaces, commas, or new lines
+            </p>
+
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => setStage('choices')}
+                className="px-4 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-purple-200 font-medium rounded-xl transition-all"
+              >
+                Back
+              </button>
+              <button
+                onClick={() => {
+                  // Parse all number inputs at once
+                  const allNumbers = validChoices.map((_, idx) => {
+                    const input = numberInputs[idx] || '';
+                    return input.split(/[\s,\n]+/).map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+                  });
+                  setChoiceNumbers(allNumbers);
+                  performReading(allNumbers);
+                }}
+                className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-xl transition-all"
+              >
+                Reveal My Reading ✨
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isReading && (
+          <div className="bg-slate-900/80 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border border-purple-500/30 text-center">
+            <div className="text-6xl mb-4 floating">🌌</div>
+            <p className="text-purple-300 text-lg">The cosmos is aligning...</p>
+            <p className="text-purple-400/70 text-sm mt-2">Consulting the sacred numbers</p>
+            <div className="mt-4 flex justify-center gap-1">
+              {[0, 1, 2].map(i => (
+                <div
+                  key={i}
+                  className="w-3 h-3 bg-purple-500 rounded-full animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {stage === 'reading' && results && (
+          <div className="bg-slate-900/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border border-purple-500/30 max-h-[85vh] overflow-auto">
+            {/* Hidden share card */}
+            <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+              <div
+                ref={shareCardRef}
+                style={{
+                  width: 400,
+                  padding: 24,
+                  background: 'linear-gradient(135deg, #1e1b4b 0%, #4c1d95 100%)',
+                  fontFamily: 'Arial, Helvetica, sans-serif',
+                }}
+              >
+                <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                  <div style={{ fontSize: 32 }}>🔮</div>
+                  <div style={{ fontSize: 14, color: '#c4b5fd', marginTop: 8, letterSpacing: 0 }}>{'Decision Numerology'}</div>
+                </div>
+
+                <div style={{
+                  background: 'linear-gradient(135deg, #7c3aed 0%, #db2777 100%)',
+                  borderRadius: 12,
+                  padding: 20,
+                  textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginBottom: 8, letterSpacing: 0 }}>
+                    {results.isSingleMode ? 'Numerology reading for' : 'The cosmos chose'}
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 'bold', color: 'white', letterSpacing: 0 }}>{results.winner.choice}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 8, letterSpacing: 0 }}>
+                    {'Root number: '}{results.winner.rootNumber}
+                    {results.isSingleMode ? ' | Score: ' + results.winner.score + ' pts' : ' | Confidence: ' + results.confidence + '%'}
+                  </div>
+                </div>
+
+                {!results.isSingleMode && (
+                  <div style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    borderRadius: 12,
+                    padding: 16,
+                    marginTop: 16,
+                  }}>
+                    {results.scores.map((s, idx) => (
+                      <div key={idx} style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        padding: '6px 0',
+                        borderBottom: idx < results.scores.length - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none',
+                        color: idx === 0 ? '#fbbf24' : '#a78bfa',
+                        fontSize: 14,
+                        letterSpacing: 0,
+                      }}>
+                        <span>{idx === 0 ? '\u2605 ' : ''}{s.choice}</span>
+                        <span>{s.score} pts</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {results.isSingleMode && results.winner.findings?.multiNumber?.[0] && (
+                  <div style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    borderRadius: 12,
+                    padding: 16,
+                    marginTop: 16,
+                  }}>
+                    <div style={{ color: '#fbbf24', fontSize: 12, fontFamily: 'monospace', letterSpacing: 0 }}>
+                      {results.winner.findings.multiNumber[0].equation} = {results.winner.findings.multiNumber[0].result}
+                    </div>
+                    <div style={{ color: '#a78bfa', fontSize: 11, marginTop: 4, letterSpacing: 0 }}>
+                      → {results.winner.findings.multiNumber[0].resultName}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 16 }}>
+                  {'Made with Marco\'s Tools'}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={shareResults}
+                disabled={shareStatus === 'generating'}
+                className={`text-sm px-3 py-1 rounded-lg transition-colors flex items-center gap-1 ${
+                  shareStatus && shareStatus !== 'generating'
+                    ? 'bg-green-900/50 text-green-400'
+                    : 'bg-slate-700/50 hover:bg-slate-600/50 text-purple-200'
+                }`}
+              >
+                {!shareStatus && (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                )}
+                {shareStatus === 'generating' ? '...' : shareStatus === 'shared' ? 'Shared' : shareStatus === 'downloaded' ? 'Saved' : shareStatus === 'copied' ? 'Copied' : 'Share'}
+              </button>
+            </div>
+
+            <div className="text-center mb-6">
+              <span className="text-4xl floating inline-block">✨</span>
+              <h2 className="text-xl font-bold text-purple-200 mt-2">Your Numerological Reading</h2>
+            </div>
+
+            {/* Main result */}
+            <div className="mystical-card bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl p-5 mb-6 text-center">
+              <p className="text-purple-100 text-sm mb-2">{results.guidancePhrase}</p>
+              <p className="text-3xl font-bold text-white mb-2">{results.winner.choice}</p>
+              <div className="flex justify-center gap-4 text-sm">
+                <span className="text-purple-200">
+                  Root: <span className="font-bold text-white">{results.winner.rootNumber}</span>
+                </span>
+                {!results.isSingleMode && (
+                  <span className="text-purple-200">
+                    Confidence: <span className="font-bold text-white">{results.confidence}%</span>
+                  </span>
+                )}
+                {results.isSingleMode && (
+                  <span className="text-purple-200">
+                    Score: <span className="font-bold text-white">{results.winner.score} pts</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Expandable explanation */}
+              <details className="mt-4 text-left">
+                <summary className="text-xs text-purple-200/70 hover:text-purple-100 cursor-pointer text-center">
+                  What do these numbers mean?
+                </summary>
+                <div className="mt-3 p-3 bg-black/20 rounded-lg text-xs space-y-3">
+                  {/* Root number explanation */}
+                  <div>
+                    <p className="text-purple-200 font-medium mb-1">Root Number: {results.winner.rootNumber}</p>
+                    <p className="text-purple-300/70 mb-2">
+                      In numerology, numbers are reduced to a single digit by adding their digits together repeatedly.
+                    </p>
+                    <div className="font-mono text-purple-100 bg-black/20 rounded p-2">
+                      {results.winner.numbers?.length > 0 && (
+                        <>
+                          <span className="text-purple-400/70">Sum: </span>
+                          {results.winner.numbers.join(' + ')} = {results.winner.sum}
+                          <br />
+                        </>
+                      )}
+                      <span className="text-purple-400/70">Reduce: </span>
+                      {(() => {
+                        const steps = [];
+                        let num = results.winner.sum;
+                        while (num > 9 && num !== 11 && num !== 22 && num !== 33) {
+                          const digits = String(num).split('');
+                          const next = digits.reduce((a, b) => a + parseInt(b), 0);
+                          steps.push(`${digits.join('+')}=${next}`);
+                          num = next;
+                        }
+                        return steps.length > 0 ? steps.join(' → ') : `${num} (already single digit)`;
+                      })()}
+                    </div>
+                    {ROOT_MEANINGS[results.winner.rootNumber] && (
+                      <p className="text-purple-200/80 mt-2 italic">
+                        "{ROOT_MEANINGS[results.winner.rootNumber].meaning}"
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Confidence/Score explanation */}
+                  {!results.isSingleMode ? (
+                    <div>
+                      <p className="text-purple-200 font-medium mb-1">Confidence: {results.confidence}%</p>
+                      <p className="text-purple-300/70 mb-2">
+                        Shows how much the winner's score exceeds the runner-up. Bigger gap = higher confidence.
+                      </p>
+                      <div className="font-mono text-purple-100 bg-black/20 rounded p-2">
+                        <span className="text-purple-400/70">Winner: </span>{results.scores[0]?.score || 0} pts<br />
+                        <span className="text-purple-400/70">Runner-up: </span>{results.scores[1]?.score || 0} pts<br />
+                        <span className="text-purple-400/70">Gap: </span>{(results.scores[0]?.score || 0) - (results.scores[1]?.score || 0)} pts
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-purple-200 font-medium mb-1">Score: {results.winner.score} pts</p>
+                      <p className="text-purple-300/70">
+                        Based on cosmic connections found: equations linking your numbers to sacred constants (π, φ, etc.),
+                        plus bonuses for high-precision matches.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </details>
+            </div>
+
+            {/* All scores */}
+            <div className="space-y-3 mb-6">
+              <h3 className="text-purple-300 text-sm font-medium">
+                {results.isSingleMode ? 'Numerology Breakdown' : 'Complete Reading'}
+              </h3>
+              {results.scores.map((s, idx) => (
+                <div
+                  key={idx}
+                  className={`rounded-xl p-4 ${idx === 0 && !results.isSingleMode ? 'bg-yellow-500/20 border border-yellow-500/30' : 'bg-slate-800/50'}`}
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <span className={`font-medium ${idx === 0 && !results.isSingleMode ? 'text-yellow-300' : 'text-purple-200'}`}>
+                      {idx === 0 && !results.isSingleMode && '★ '}{s.choice}
+                    </span>
+                    <span className={`font-bold ${idx === 0 && !results.isSingleMode ? 'text-yellow-300' : 'text-purple-300'}`}>
+                      {s.score} pts
+                    </span>
+                  </div>
+                  <div className="text-xs text-purple-400/70">
+                    Numbers: {s.numbers.length > 0 ? s.numbers.join(', ') : 'none'} → Sum: {s.sum || 0} → Root: {s.rootNumber}
+                  </div>
+
+                  {/* Best finding teaser */}
+                  {s.findings?.multiNumber?.[0] && (
+                    <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                      <p className="text-xs text-yellow-300/90 font-mono">
+                        {s.findings.multiNumber[0].equation} = <span className="font-bold">{s.findings.multiNumber[0].result}</span>
+                      </p>
+                      <p className="text-xs text-yellow-200/60 mt-1">
+                        → {s.findings.multiNumber[0].resultName} ({s.findings.multiNumber[0].accuracy}% match)
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Cosmic Discoveries - prominent button */}
+                  {s.findings && (s.findings.multiNumber.length > 0 || s.findings.singleNumber.length > 0) && (
+                    <details className="mt-3 group">
+                      <summary className="cursor-pointer select-none">
+                        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-600/30 to-pink-600/30 hover:from-purple-600/50 hover:to-pink-600/50 rounded-xl border border-purple-400/30 transition-all">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">✨</span>
+                            <div>
+                              <p className="text-sm font-medium text-purple-200">
+                                View All Equations
+                              </p>
+                              <p className="text-xs text-purple-300/60">
+                                {s.findings.multiNumber.length} connections + {s.findings.singleNumber.length} properties found
+                              </p>
+                            </div>
+                          </div>
+                          <svg className="w-5 h-5 text-purple-300 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </summary>
+                      <div className="mt-3 space-y-3 pt-3 border-t border-purple-500/20">
+                        {/* Multi-number connections first */}
+                        {s.findings.multiNumber.length > 0 && (
+                          <>
+                            <p className="text-xs text-purple-300/70 font-medium">🔗 Connections Between Your Numbers</p>
+                            {s.findings.multiNumber.map((finding, i) => (
+                              <FindingCard key={`multi-${i}`} finding={finding} />
+                            ))}
+                          </>
+                        )}
+                        {/* Single number properties */}
+                        {s.findings.singleNumber.length > 0 && (
+                          <details className="mt-2">
+                            <summary className="text-xs text-purple-400/50 hover:text-purple-300 cursor-pointer">
+                              Individual number properties ({s.findings.singleNumber.length})
+                            </summary>
+                            <div className="mt-2 space-y-2">
+                              {s.findings.singleNumber.map((finding, i) => (
+                                <FindingCard key={`single-${i}`} finding={finding} compact />
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Disclaimer */}
+            <p className="text-purple-400/50 text-xs text-center mb-4 italic">
+              This reading is for entertainment purposes. Trust your own judgment for important decisions!
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  // Go back to numbers page with current data
+                  setStage('numbers');
+                }}
+                className="flex-1 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-purple-200 font-medium rounded-xl transition-all"
+              >
+                Edit Numbers
+              </button>
+              <button
+                onClick={reset}
+                className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-xl transition-all"
+              >
+                New Reading
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
