@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-tools-v30';
+const CACHE_NAME = 'my-tools-v31';
 
 self.addEventListener('install', event => {
   self.skipWaiting();

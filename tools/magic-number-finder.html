@@ -92,25 +92,25 @@ const MAGIC_NUMBERS = [
   { value: Math.sqrt(5), name: 'Root of Five', symbol: '√5', category: 'mathematical', description: 'Hidden within the Golden Ratio' },
 
   // Astronomical measurements
-  { value: 299792458, name: 'Speed of Light', symbol: 'c', category: 'cosmic', description: 'meters per second - the universe\'s speed limit' },
-  { value: 149597870.7, name: 'Earth-Sun Distance', symbol: 'AU', category: 'cosmic', description: 'kilometers - one Astronomical Unit' },
-  { value: 384400, name: 'Earth-Moon Distance', symbol: '🌙', category: 'cosmic', description: 'kilometers average' },
-  { value: 6371, name: 'Earth\'s Radius', symbol: '🌍', category: 'cosmic', description: 'kilometers' },
-  { value: 1737, name: 'Moon\'s Radius', symbol: '🌑', category: 'cosmic', description: 'kilometers' },
-  { value: 696340, name: 'Sun\'s Radius', symbol: '☀️', category: 'cosmic', description: 'kilometers' },
+  { value: 299792458, name: 'Speed of Light', symbol: 'c', category: 'cosmic', description: 'Meters per second - the universe\'s speed limit' },
+  { value: 149597870.7, name: 'Earth-Sun Distance', symbol: 'AU', category: 'cosmic', description: 'Kilometers - one Astronomical Unit' },
+  { value: 384400, name: 'Earth-Moon Distance', symbol: '🌙', category: 'cosmic', description: 'Kilometers average' },
+  { value: 6371, name: 'Earth\'s Radius', symbol: '🌍', category: 'cosmic', description: 'Kilometers' },
+  { value: 1737, name: 'Moon\'s Radius', symbol: '🌑', category: 'cosmic', description: 'Kilometers' },
+  { value: 696340, name: 'Sun\'s Radius', symbol: '☀️', category: 'cosmic', description: 'Kilometers' },
   { value: 365.25, name: 'Days in Year', symbol: '📅', category: 'cosmic', description: 'Earth\'s orbital period' },
-  { value: 27.3, name: 'Lunar Cycle', symbol: '🌕', category: 'cosmic', description: 'days - sidereal month' },
-  { value: 29.5, name: 'Synodic Month', symbol: '🌓', category: 'cosmic', description: 'days between full moons' },
+  { value: 27.3, name: 'Lunar Cycle', symbol: '🌕', category: 'cosmic', description: 'Days - sidereal month' },
+  { value: 29.5, name: 'Synodic Month', symbol: '🌓', category: 'cosmic', description: 'Days between full moons' },
 
   // Sacred architecture
-  { value: 146.6, name: 'Great Pyramid Height', symbol: '△', category: 'ancient', description: 'meters - original height' },
-  { value: 230.4, name: 'Great Pyramid Base', symbol: '▢', category: 'ancient', description: 'meters per side' },
-  { value: 51.84, name: 'Pyramid Angle', symbol: '∠', category: 'ancient', description: 'degrees - slope angle' },
+  { value: 146.6, name: 'Great Pyramid Height', symbol: '△', category: 'ancient', description: 'Meters - original height' },
+  { value: 230.4, name: 'Great Pyramid Base', symbol: '▢', category: 'ancient', description: 'Meters per side' },
+  { value: 51.84, name: 'Pyramid Angle', symbol: '∠', category: 'ancient', description: 'Degrees - slope angle' },
   { value: 2.72, name: 'Cubit', symbol: '📏', category: 'ancient', description: 'Royal Egyptian cubit in feet' },
 
   // Sacred numbers
-  { value: 108, name: 'Sacred 108', symbol: '🕉️', category: 'mystical', description: 'Holy number in Hinduism & Buddhism' },
-  { value: 432, name: 'Cosmic Frequency', symbol: '🎵', category: 'mystical', description: 'Hz - the "natural" tuning frequency' },
+  { value: 108, name: 'Sacred 108', symbol: '🕉️', category: 'mystical', description: 'Sun/Moon distance ratio, holy in Eastern traditions' },
+  { value: 432, name: 'Cosmic Frequency', symbol: '🎵', category: 'mystical', description: 'Hz - the "natural" tuning, Sun radius = 432,000 mi' },
   { value: 144, name: 'Gross/Square of 12', symbol: '⬡', category: 'mystical', description: '12×12 - sacred in many traditions' },
   { value: 666, name: 'Number of the Beast', symbol: '👹', category: 'mystical', description: 'Biblical number of significance' },
   { value: 888, name: 'Jesus Number', symbol: '✝️', category: 'mystical', description: 'Greek gematria value of "Jesus"' },
@@ -119,11 +119,20 @@ const MAGIC_NUMBERS = [
   { value: 12, name: 'Cosmic Twelve', symbol: '🔯', category: 'mystical', description: 'Zodiac signs, apostles, months' },
   { value: 13, name: 'Sacred Thirteen', symbol: '🌀', category: 'mystical', description: 'Lunar months, Mayan sacred number' },
   { value: 40, name: 'Biblical Forty', symbol: '📜', category: 'mystical', description: 'Days of flood, years in desert' },
-  { value: 72, name: 'Divine Names', symbol: '✡️', category: 'mystical', description: 'Names of God in Kabbalah' },
+  { value: 72, name: 'Precessional Degree', symbol: '✡️', category: 'mystical', description: 'Years per degree of precession, Names of God' },
   { value: 360, name: 'Full Circle', symbol: '⭕', category: 'mystical', description: 'Degrees - Babylonian sacred number' },
 
+  // Precessional / Sacred Geometry (Carlson-style)
+  { value: 25920, name: 'Great Year', symbol: '🌀', category: 'ancient', description: 'Years for full precession of equinoxes' },
+  { value: 2160, name: 'Zodiac Age', symbol: '♈', category: 'ancient', description: 'Years per age, also Moon diameter in miles' },
+  { value: 43200, name: 'Pyramid Scale', symbol: '🔺', category: 'ancient', description: 'Great Pyramid to Earth ratio, half of 86,400' },
+  { value: 86400, name: 'Seconds per Day', symbol: '⏱️', category: 'cosmic', description: 'Seconds in 24 hours' },
+  { value: 432000, name: 'Solar Radius', symbol: '☀️', category: 'cosmic', description: 'Approximate radius of the Sun in miles' },
+  { value: 1080, name: 'Moon Radius', symbol: '🌙', category: 'cosmic', description: 'Moon radius in miles (108 × 10)' },
+  { value: 3960, name: 'Earth Radius Mi', symbol: '🌍', category: 'cosmic', description: 'Earth radius in miles' },
+
   // Physical constants
-  { value: 9.81, name: 'Earth Gravity', symbol: 'g', category: 'physics', description: 'm/s² - gravitational acceleration' },
+  { value: 9.81, name: 'Earth Gravity', symbol: 'g', category: 'physics', description: 'Gravitational acceleration (m/s²)' },
   { value: 6.674, name: 'Gravitational Constant', symbol: 'G', category: 'physics', description: '×10⁻¹¹ - Newton\'s constant' },
   { value: 1.618033988749, name: 'Phi Precise', symbol: 'Φ', category: 'mathematical', description: 'Golden ratio to 12 decimals' },
 ];
@@ -144,11 +153,63 @@ const EQUATION_CONSTANTS = [
   { value: SQRT3, symbol: '√3', name: 'Root 3' },
   { value: 7, symbol: '7', name: 'Sacred Seven' },
   { value: 12, symbol: '12', name: 'Cosmic Twelve' },
-  { value: 137, symbol: '137', name: 'Fine Structure' },
+  { value: 72, symbol: '72', name: 'Precessional Degree' },
   { value: 108, symbol: '108', name: 'Sacred 108' },
   { value: 360, symbol: '360', name: 'Full Circle' },
   { value: 432, symbol: '432', name: 'Cosmic Frequency' },
+  { value: 2160, symbol: '2160', name: 'Zodiac Age' },
+  { value: 43200, symbol: '43200', name: 'Pyramid Scale' },
 ];
+
+// Sacred ratios to check between numbers
+const SACRED_RATIOS = [
+  { value: 108, name: 'Sun/Moon Distance Ratio', description: 'The cosmic 108 appears in celestial distances' },
+  { value: 43200, name: 'Pyramid Scale Factor', description: 'The Great Pyramid encodes Earth\'s dimensions' },
+  { value: 12, name: 'Zodiac Division', description: 'The universe divided into 12 houses' },
+  { value: 72, name: 'Precessional Slip', description: 'One degree every 72 years' },
+];
+
+// Explanations for symbols/constants used in equations
+const SYMBOL_EXPLANATIONS = {
+  'π': { symbol: 'π', name: 'Pi', explanation: 'Ratio of circle circumference to diameter (3.14159...)' },
+  'φ': { symbol: 'φ', name: 'Golden Ratio', explanation: 'The divine proportion found in nature and art (1.618...)' },
+  'e': { symbol: 'e', name: "Euler's Number", explanation: 'Base of natural logarithms (2.718...)' },
+  '√2': { symbol: '√2', name: 'Root 2', explanation: 'Diagonal of a unit square (1.414...)' },
+  '√3': { symbol: '√3', name: 'Root 3', explanation: 'Height of equilateral triangle (1.732...)' },
+  '7': { symbol: '7', name: 'Sacred Seven', explanation: 'Days of creation, chakras, musical notes' },
+  '12': { symbol: '12', name: 'Cosmic Twelve', explanation: 'Zodiac signs, apostles, months of the year' },
+  '72': { symbol: '72', name: 'Precessional Degree', explanation: 'Years for Earth\'s axis to shift 1° (25,920 ÷ 360)' },
+  '108': { symbol: '108', name: 'Sacred 108', explanation: 'Sun is 108× its diameter from Earth; same for Moon' },
+  '360': { symbol: '360', name: 'Full Circle', explanation: 'Degrees in a circle, Babylonian base-60 sacred number' },
+  '432': { symbol: '432', name: 'Cosmic Frequency', explanation: 'Natural tuning Hz; Sun radius ≈ 432,000 miles' },
+  '2160': { symbol: '2160', name: 'Zodiac Age', explanation: 'Years per astrological age; Moon diameter in miles' },
+  '43200': { symbol: '43200', name: 'Pyramid Scale', explanation: 'Scale factor linking Great Pyramid dimensions to Earth' },
+};
+
+// Find which constants appear in an equation string
+function findConstantsInEquation(equation) {
+  const found = [];
+  // Sort by length descending so we check longer numbers first (43200 before 432, 72 before 7)
+  const sortedEntries = Object.entries(SYMBOL_EXPLANATIONS).sort((a, b) => b[0].length - a[0].length);
+
+  for (const [key, info] of sortedEntries) {
+    // For numeric constants, ensure they're not part of a larger number
+    const isNumeric = /^\d+$/.test(key);
+    if (isNumeric) {
+      // Match only if surrounded by non-digits (or start/end of string)
+      const regex = new RegExp(`(^|[^0-9])${key}([^0-9]|$)`);
+      if (regex.test(equation)) {
+        found.push(info);
+      }
+    } else {
+      // For symbols like π, φ, √2, just check if they appear
+      if (equation.includes(key)) {
+        found.push(info);
+      }
+    }
+  }
+  return found;
+}
 
 function findMagic(numbers) {
   const results = [];
@@ -194,6 +255,10 @@ function findMagic(numbers) {
 
     const nice = isNiceNumber(result);
     if (nice && nice.type === 'magic') {
+      // Skip if the result essentially appears in the equation (circular results like "2 × π = 2 × π")
+      const resultPattern = nice.display.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (new RegExp(`(^|\\s|×|÷|\\()${resultPattern}(\\s|×|÷|\\)|$)`).test(equation)) return;
+
       results.push({
         equation,
         result: nice.display,
@@ -211,6 +276,51 @@ function findMagic(numbers) {
 
   const n = numbers.length;
 
+  // Single number analysis
+  for (let i = 0; i < n; i++) {
+    const a = numbers[i];
+    if (a === 0) continue;
+
+    // Direct match check
+    tryEquation(`${a}`, a, 1, 'A number of cosmic significance');
+
+    // Single number with constants
+    for (const c of EQUATION_CONSTANTS) {
+      tryEquation(`${a} × ${c.symbol}`, a * c.value, 1, `Multiplied by ${c.name}`, a);
+      tryEquation(`${a} ÷ ${c.symbol}`, a / c.value, 1, `Divided by ${c.name}`, a / c.value);
+      // Only add/subtract if the number is significant relative to the constant
+      if (Math.abs(a) > c.value * 0.1) {
+        tryEquation(`${a} + ${c.symbol}`, a + c.value, 1, `${c.name} added`);
+        tryEquation(`${a} − ${c.symbol}`, a - c.value, 1, `${c.name} subtracted`);
+      }
+      if (a > 1) {
+        tryEquation(`${c.symbol} ^ ${a}`, Math.pow(c.value, a), 1, `${c.name} raised to this power`);
+      }
+    }
+
+    // Square root, square, etc.
+    tryEquation(`√${a}`, Math.sqrt(a), 1, 'The square root reveals hidden truth');
+    tryEquation(`${a}²`, a * a, 1, 'Squared, it transforms');
+    if (a > 0 && a < 100) {
+      tryEquation(`${a}³`, a * a * a, 1, 'Cubed, it ascends');
+    }
+
+    // Factorial for small numbers
+    if (a > 0 && a <= 10 && Number.isInteger(a)) {
+      let fact = 1;
+      for (let j = 2; j <= a; j++) fact *= j;
+      tryEquation(`${a}!`, fact, 1, 'Factorial unlocks deeper meaning');
+    }
+
+    // Precessional numbers and combined constants
+    tryEquation(`${a} ÷ 12`, a / 12, 1, 'Divided by the Zodiac');
+    tryEquation(`${a} ÷ 360`, a / 360, 1, 'Divided by the full circle');
+    tryEquation(`${a} × 72`, a * 72, 1, 'Precessional years amplify');
+    tryEquation(`${a} × 108`, a * 108, 1, 'Sacred 108 magnifies');
+    tryEquation(`${a} × π × φ`, a * PI * PHI, 1, 'Pi and Phi together transform', a);
+    tryEquation(`${a} ÷ (π × φ)`, a / (PI * PHI), 1, 'Divided by the sacred product', a / (PI * PHI));
+  }
+
   // Two-number relationships with constants
   if (n >= 2) {
     for (let i = 0; i < n; i++) {
@@ -224,6 +334,19 @@ function findMagic(numbers) {
         tryEquation(`${a} × ${b}`, a * b, 2, 'Their product unveils cosmic significance');
         tryEquation(`${a} + ${b}`, a + b, 2, 'United, they form a sacred sum');
         tryEquation(`${a} − ${b}`, a - b, 2, 'Their difference echoes through the cosmos');
+
+        // Sacred ratio checks (Carlson-style)
+        for (const ratio of SACRED_RATIOS) {
+          tryEquation(`${a} ÷ ${b} × ${ratio.value}`, (a / b) * ratio.value, 2, ratio.description, a / b);
+          tryEquation(`(${a} − ${b}) × ${ratio.value}`, (a - b) * ratio.value, 2, ratio.description, a - b);
+        }
+
+        // Precessional equations
+        tryEquation(`${a} × ${b} ÷ 12`, (a * b) / 12, 2, 'Divided by the Zodiac reveals hidden order');
+        tryEquation(`${a} × ${b} ÷ 360`, (a * b) / 360, 2, 'The full circle divides their product');
+        tryEquation(`(${a} + ${b}) × 72`, (a + b) * 72, 2, 'Precessional years amplify the sum');
+        tryEquation(`(${a} + ${b}) × 2160`, (a + b) * 2160, 2, 'A Zodiac Age magnifies their union');
+        tryEquation(`${a} × 43200 ÷ ${b}`, (a * 43200) / b, 2, 'The Pyramid Scale reveals Earth\'s encoding', a / b);
 
         // With constants - pass intermediate values to filter trivial results
         for (const c of EQUATION_CONSTANTS) {
@@ -365,10 +488,11 @@ function findMagic(numbers) {
 const CATEGORY_COLORS = {
   mathematical: 'from-blue-500 to-cyan-500',
   cosmic: 'from-purple-500 to-pink-500',
-  ancient: 'from-amber-500 to-orange-500',
+  ancient: 'from-amber-600 to-yellow-500',
   mystical: 'from-violet-500 to-purple-500',
   physics: 'from-green-500 to-teal-500',
   numerology: 'from-pink-500 to-rose-500',
+  precessional: 'from-orange-500 to-red-500',
 };
 
 const MYSTERY_COLORS = {
@@ -460,12 +584,12 @@ function App() {
             <textarea
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder={"Enter at least 2 numbers...\n\nExamples:\n1776, 1969\n23, 42, 108\n3.14159, 2.71828"}
+              placeholder={"Enter any numbers...\n\nExamples:\n432\n1776, 1969\n23, 42, 108"}
               className="w-full h-40 p-4 bg-slate-800/50 border border-purple-500/30 rounded-xl text-purple-100 placeholder-purple-400/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
             />
 
             <p className="text-purple-400/50 text-xs mt-2 text-center">
-              Enter at least 2 numbers separated by spaces, commas, or new lines
+              Enter one or more numbers separated by spaces, commas, or new lines
             </p>
 
             {history.length > 0 && (
@@ -562,13 +686,26 @@ function App() {
                           <span className={`text-xs px-2 py-0.5 rounded-full border ${MYSTERY_COLORS[finding.mysteryLevel] || 'bg-purple-100 text-purple-800 border-purple-300'}`}>
                             {finding.mysteryLevel}
                           </span>
-                          <span className="text-purple-400/60 text-xs">
-                            {finding.numbersInvolved} numbers
-                          </span>
                         </div>
                         <p className="text-purple-100 font-mono text-sm bg-slate-800/50 rounded-lg px-3 py-2 overflow-x-auto">
                           {finding.equation} = <span className="text-yellow-300 font-bold">{finding.result}</span>
                         </p>
+
+                        {/* Constant explanations */}
+                        {(() => {
+                          const constants = findConstantsInEquation(finding.equation);
+                          if (constants.length === 0) return null;
+                          return (
+                            <div className="mt-2 space-y-1">
+                              {constants.map((c, i) => (
+                                <p key={i} className="text-purple-300/60 text-xs">
+                                  <span className="text-purple-200 font-mono">{c.symbol}</span> = {c.explanation}
+                                </p>
+                              ))}
+                            </div>
+                          );
+                        })()}
+
                         <p className="text-purple-300/80 text-sm mt-2">
                           → {finding.resultName || finding.result}
                           {finding.magic?.value && (
