@@ -17,12 +17,68 @@
     .allow-scroll { overflow: auto !important; }
     .drag-ghost { opacity: 0.5; }
     .drag-over { border-color: #ea580c !important; background-color: #fff7ed !important; }
+
+    @keyframes confetti-fall {
+      0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      top: -10px;
+      animation: confetti-fall 3s ease-out forwards;
+      z-index: 1000;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useCallback, useRef, useEffect, useMemo } = React;
+
+// Confetti component
+function Confetti({ show }) {
+  const [pieces, setPieces] = useState([]);
+
+  useEffect(() => {
+    if (show) {
+      const colors = ['#ea580c', '#fbbf24', '#22c55e', '#8b5cf6', '#ec4899', '#06b6d4'];
+      const newPieces = Array.from({ length: 50 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        delay: Math.random() * 0.5,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 6 + Math.random() * 8,
+      }));
+      setPieces(newPieces);
+      const timer = setTimeout(() => setPieces([]), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [show]);
+
+  if (!show || pieces.length === 0) return null;
+
+  return (
+    <>
+      {pieces.map(piece => (
+        <div
+          key={piece.id}
+          className="confetti"
+          style={{
+            left: `${piece.left}%`,
+            backgroundColor: piece.color,
+            width: piece.size,
+            height: piece.size,
+            animationDelay: `${piece.delay}s`,
+            borderRadius: Math.random() > 0.5 ? '50%' : '0',
+          }}
+        />
+      ))}
+    </>
+  );
+}
 
 // Draggable list component
 function DraggableList({ items, onReorder }) {
@@ -376,6 +432,7 @@ function App() {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [shareStatus, setShareStatus] = useState(null);
+  const [showConfetti, setShowConfetti] = useState(false);
   const shareCardRef = useRef(null);
 
   const getVoteResults = () => {
@@ -417,13 +474,8 @@ function App() {
           text: `Group consensus: ${results[0]?.choice}`,
         });
         setShareStatus('shared');
-      } else if (navigator.share) {
-        await navigator.share({
-          title: 'Team Vote Results',
-          text: `Group ranking:\n${results.slice(0, 5).map((r, i) => `${i + 1}. ${r.choice}`).join('\n')}\n\nMade with Marco's Tools`,
-        });
-        setShareStatus('shared');
       } else {
+        // Download image when file sharing not supported
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -435,7 +487,7 @@ function App() {
     } catch (err) {
       if (err.name !== 'AbortError') {
         const results = getVoteResults();
-        const text = `Group ranking: ${results.slice(0, 3).map(r => r.choice).join(', ')}\nMade with Marco's Tools`;
+        const text = `Group ranking: ${results.slice(0, 3).map(r => r.choice).join(', ')}\nMade with Marco's Decision Tools`;
         await navigator.clipboard.writeText(text);
         setShareStatus('copied');
       } else {
@@ -516,6 +568,7 @@ function App() {
       setStage('handoff');
     } else {
       setStage('results');
+      setShowConfetti(true);
     }
   };
 
@@ -730,6 +783,7 @@ function App() {
 
         {stage === 'results' && (
           <div className="bg-white rounded-2xl shadow-xl p-6 overflow-auto max-h-[90vh]">
+            <Confetti show={showConfetti} />
             {/* Hidden share card */}
             <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
               <div
@@ -774,7 +828,7 @@ function App() {
                 </div>
 
                 <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 16 }}>
-                  {'Made with Marco\'s Tools'}
+                  {'Made with Marco\'s Decision Tools'}
                 </div>
               </div>
             </div>
