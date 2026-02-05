@@ -88,9 +88,67 @@
       50% { transform: scale(1.1); opacity: 0.8; }
     }
 
+    @keyframes crit-hit-left {
+      0% { transform: scale(1); }
+      25% { transform: scale(0.7) rotate(-10deg); filter: brightness(3) saturate(2); }
+      50% { transform: scale(1.1) rotate(5deg); filter: brightness(2); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes crit-hit-right {
+      0% { transform: scaleX(-1) scale(1); }
+      25% { transform: scaleX(-1) scale(0.7) rotate(10deg); filter: brightness(3) saturate(2); }
+      50% { transform: scaleX(-1) scale(1.1) rotate(-5deg); filter: brightness(2); }
+      100% { transform: scaleX(-1) scale(1); }
+    }
+
+    @keyframes screen-shake {
+      0%, 100% { transform: translateX(0); }
+      10% { transform: translateX(-8px) translateY(4px); }
+      20% { transform: translateX(8px) translateY(-4px); }
+      30% { transform: translateX(-6px) translateY(2px); }
+      40% { transform: translateX(6px) translateY(-2px); }
+      50% { transform: translateX(-4px); }
+      60% { transform: translateX(4px); }
+      70% { transform: translateX(-2px); }
+      80% { transform: translateX(2px); }
+    }
+
+    @keyframes crit-text {
+      0% { opacity: 0; transform: translateY(0) scale(0.5); }
+      20% { opacity: 1; transform: translateY(-10px) scale(1.5); }
+      40% { transform: translateY(-20px) scale(1.2); }
+      100% { opacity: 0; transform: translateY(-40px) scale(1); }
+    }
+
+    @keyframes crit-flash {
+      0% { opacity: 0; }
+      10% { opacity: 0.6; }
+      100% { opacity: 0; }
+    }
+
+    @keyframes damage-float {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      20% { transform: translateY(-10px) scale(1.2); }
+      100% { opacity: 0; transform: translateY(-50px) scale(0.8); }
+    }
+
+    @keyframes crit-attacker-glow {
+      0% { filter: drop-shadow(0 0 8px currentColor); }
+      30% { filter: drop-shadow(0 0 25px #fbbf24) drop-shadow(0 0 40px #f59e0b) brightness(1.3); }
+      100% { filter: drop-shadow(0 0 8px currentColor); }
+    }
+
     .shake { animation: shake 0.3s ease-in-out; }
     .hit-left { animation: hit-left 0.3s ease-in-out; }
     .hit-right { animation: hit-right 0.3s ease-in-out; }
+    .crit-hit-left { animation: crit-hit-left 0.5s ease-in-out; }
+    .crit-hit-right { animation: crit-hit-right 0.5s ease-in-out; }
+    .screen-shake { animation: screen-shake 0.4s ease-in-out; }
+    .crit-text { animation: crit-text 0.8s ease-out forwards; }
+    .crit-flash { animation: crit-flash 0.3s ease-out; }
+    .damage-float { animation: damage-float 1s ease-out forwards; }
+    .crit-attacker-glow { animation: crit-attacker-glow 0.6s ease-out; }
     .float { animation: float 2s ease-in-out infinite; }
     .float-flipped { animation: float-flipped 2s ease-in-out infinite; }
     .attack-right { animation: attack-right 0.4s ease-out; }
@@ -304,9 +362,39 @@ function generateMonster(choice, index) {
   };
 }
 
-function Monster({ monster, isLeft, isAttacking, isHit, isWinner, boostEffect, isDropTarget, effectText, activeEffects }) {
+function Monster({ monster, isLeft, isAttacking, isHit, isCriticalHit, isCritAttacker, isWinner, boostEffect, isDropTarget, effectText, activeEffects, damageText }) {
   return (
     <div className="flex flex-col items-center relative">
+      {/* Damage text floating up */}
+      {damageText && (
+        <div className="absolute -top-4 left-1/2 -translate-x-1/2 pointer-events-none z-30">
+          {damageText.isMiss ? (
+            <span
+              className="text-xl font-black damage-float text-cyan-400 drop-shadow-lg"
+              style={{ textShadow: '0 0 10px #22d3ee, 0 0 20px #0891b2' }}
+            >
+              MISS!
+            </span>
+          ) : (
+            <span
+              className={`text-2xl font-black damage-float drop-shadow-lg ${damageText.isCrit ? 'text-yellow-300' : 'text-red-400'}`}
+              style={damageText.isCrit ? { textShadow: '0 0 10px #fbbf24, 0 0 20px #f59e0b, 0 0 30px #dc2626' } : { textShadow: '0 0 8px #dc2626' }}
+            >
+              {damageText.isCrit && '💥 '}-{damageText.amount}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Crit attacker indicator */}
+      {isCritAttacker && (
+        <div className="absolute -top-4 left-1/2 -translate-x-1/2 pointer-events-none z-30">
+          <span className="text-xl font-black text-yellow-300 crit-text drop-shadow-lg" style={{ textShadow: '0 0 10px #fbbf24, 0 0 20px #f59e0b' }}>
+            CRIT!
+          </span>
+        </div>
+      )}
+
       {/* Effect text floating up */}
       {effectText && (
         <div className="absolute -top-2 left-1/2 -translate-x-1/2 pointer-events-none z-20">
@@ -324,16 +412,9 @@ function Monster({ monster, isLeft, isAttacking, isHit, isWinner, boostEffect, i
         <div className="absolute inset-0 -m-4 rounded-2xl border-4 border-dashed border-yellow-400 drop-zone-pulse z-10" />
       )}
 
-      {/* Monster name plate */}
-      <div className={`text-center mb-2 px-3 py-1 rounded-lg ${monster.color.bg} shadow-lg`}>
-        <p className="text-white text-xs font-bold truncate max-w-[100px]" title={monster.choice}>
-          "{monster.choice}"
-        </p>
-      </div>
-
       {/* Sleep indicator */}
       {monster.sleepTurns > 0 && (
-        <div className="absolute top-8 right-0 text-lg z-10">💤</div>
+        <div className="absolute top-0 right-0 text-lg z-10">💤</div>
       )}
 
       {/* Monster with colored glow background */}
@@ -351,10 +432,10 @@ function Monster({ monster, isLeft, isAttacking, isHit, isWinner, boostEffect, i
         <div
           className={`relative text-6xl transition-all duration-200 ${monster.color.glow} monster-glow ${
             isAttacking ? (isLeft ? 'attack-right' : 'attack-left') :
-            isHit ? (isLeft ? 'hit-right shake' : 'hit-left shake') :
+            isHit ? (isCriticalHit ? (isLeft ? 'crit-hit-right shake' : 'crit-hit-left shake') : (isLeft ? 'hit-right shake' : 'hit-left shake')) :
             isWinner ? (isLeft ? 'float-flipped' : 'float') :
             isLeft ? 'scale-x-[-1]' : ''
-          } ${boostEffect ? 'boost-pulse' : ''}`}
+          } ${boostEffect ? 'boost-pulse' : ''} ${isCritAttacker ? 'crit-attacker-glow' : ''}`}
           style={{
             filter: monster.hp <= 0 ? 'grayscale(1) opacity(0.5)' :
                    monster.sleepTurns > 0 ? 'brightness(0.7)' : undefined,
@@ -377,6 +458,13 @@ function Monster({ monster, isLeft, isAttacking, isHit, isWinner, boostEffect, i
         />
       </div>
       <p className="text-white text-sm font-bold mt-1">{Math.max(0, Math.round(monster.hp))} HP</p>
+
+      {/* Monster name plate - below health */}
+      <div className={`text-center mt-1 px-3 py-1 rounded-lg ${monster.color.bg} shadow-lg`}>
+        <p className="text-white text-xs font-bold truncate max-w-[100px]" title={monster.choice}>
+          "{monster.choice}"
+        </p>
+      </div>
 
       {/* Active effects bar - fixed height to prevent layout shift */}
       <div className="h-5 mt-1 flex items-center justify-center">
@@ -447,6 +535,10 @@ function App() {
   const [draggedItem, setDraggedItem] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   const [dragPosition, setDragPosition] = useState(null);
+  const [isCritical, setIsCritical] = useState(false);
+  const [screenShake, setScreenShake] = useState(false);
+  const [damageText, setDamageText] = useState(null); // { monsterIndex, amount, isCrit }
+  const [critAttacker, setCritAttacker] = useState(null); // Which monster landed the crit
   const shareCardRef = useRef(null);
   const monster0Ref = useRef(null);
   const monster1Ref = useRef(null);
@@ -821,18 +913,53 @@ function App() {
 
       setAttackingMonster(attacker);
 
+      // Roll for miss (10% chance) or critical hit (15% chance)
+      const missRoll = Math.random();
+      const isMiss = missRoll < 0.10;
+      const isCrit = !isMiss && missRoll > 0.85; // 15% crit chance (0.85-1.0)
+
       setTimeout(() => {
+        if (isMiss) {
+          // Attack missed!
+          setDamageText({ monsterIndex: defender, amount: 0, isMiss: true });
+          addLog(`${monsters[attacker].fullName} missed!`, 'miss');
+
+          setTimeout(() => {
+            setAttackingMonster(null);
+            setDamageText(null);
+          }, 600);
+          return;
+        }
+
         setHitMonster(defender);
+        if (isCrit) {
+          setIsCritical(true);
+          setScreenShake(true);
+          setCritAttacker(attacker);
+        }
 
         setMonsters(prev => {
-          const damage = Math.max(1, prev[attacker].attack - prev[defender].defense + Math.floor(Math.random() * 5));
+          let damage = Math.max(1, prev[attacker].attack - prev[defender].defense + Math.floor(Math.random() * 5));
+
+          // Double damage on crit
+          if (isCrit) {
+            damage = Math.floor(damage * 2);
+          }
+
+          // Show damage number floating up from the hit monster
+          setDamageText({ monsterIndex: defender, amount: Math.round(damage), isCrit });
+
           const newMonsters = [...prev];
           newMonsters[defender] = {
             ...newMonsters[defender],
             hp: newMonsters[defender].hp - damage
           };
 
-          addLog(`${prev[attacker].fullName} deals ${Math.round(damage)} damage!`);
+          if (isCrit) {
+            addLog(`💥 CRITICAL HIT! ${prev[attacker].fullName} deals ${Math.round(damage)} damage!`, 'critical');
+          } else {
+            addLog(`${prev[attacker].fullName} deals ${Math.round(damage)} damage!`);
+          }
 
           // Check for winner
           if (newMonsters[defender].hp <= 0) {
@@ -850,7 +977,15 @@ function App() {
         setTimeout(() => {
           setAttackingMonster(null);
           setHitMonster(null);
-        }, 250);
+          setIsCritical(false);
+          setScreenShake(false);
+          setCritAttacker(null);
+        }, isCrit ? 500 : 300);
+
+        // Clear damage text after animation completes
+        setTimeout(() => {
+          setDamageText(null);
+        }, 800);
       }, 200);
     };
 
@@ -911,6 +1046,10 @@ function App() {
     setBoostEffect([false, false]);
     setItems([]);
     setShowConfetti(false);
+    setIsCritical(false);
+    setScreenShake(false);
+    setCritAttacker(null);
+    setDamageText(null);
   };
 
   return (
@@ -1094,7 +1233,12 @@ function App() {
         )}
 
         {stage === 'battle' && monsters[0] && monsters[1] && (
-          <div className="bg-slate-800/80 backdrop-blur rounded-2xl shadow-2xl p-4 border border-red-500/30">
+          <div className={`bg-slate-800/80 backdrop-blur rounded-2xl shadow-2xl p-4 border border-red-500/30 relative overflow-hidden ${screenShake ? 'screen-shake' : ''}`}>
+            {/* Critical hit flash overlay */}
+            {isCritical && (
+              <div className="absolute inset-0 bg-yellow-400 crit-flash pointer-events-none z-20" />
+            )}
+
             <div className="text-center mb-2">
               <span className="text-red-400 text-sm font-medium">Round {round}</span>
               <span className="text-red-400/50 text-xs ml-3">
@@ -1117,10 +1261,13 @@ function App() {
                   isLeft={true}
                   isAttacking={attackingMonster === 0}
                   isHit={hitMonster === 0}
+                  isCriticalHit={isCritical && hitMonster === 0}
+                  isCritAttacker={critAttacker === 0}
                   boostEffect={boostEffect[0]}
                   isDropTarget={dropTarget === 0}
                   effectText={effectTexts[0]}
                   activeEffects={activeEffects[0]}
+                  damageText={damageText?.monsterIndex === 0 ? damageText : null}
                 />
               </div>
 
@@ -1139,10 +1286,13 @@ function App() {
                   isLeft={false}
                   isAttacking={attackingMonster === 1}
                   isHit={hitMonster === 1}
+                  isCriticalHit={isCritical && hitMonster === 1}
+                  isCritAttacker={critAttacker === 1}
                   boostEffect={boostEffect[1]}
                   isDropTarget={dropTarget === 1}
                   effectText={effectTexts[1]}
                   activeEffects={activeEffects[1]}
+                  damageText={damageText?.monsterIndex === 1 ? damageText : null}
                 />
               </div>
             </div>
@@ -1192,6 +1342,8 @@ function App() {
                   key={log.id}
                   className={`${
                     log.type === 'announcement' ? 'text-yellow-300 font-bold' :
+                    log.type === 'critical' ? 'text-yellow-400 font-bold' :
+                    log.type === 'miss' ? 'text-cyan-400' :
                     log.type === 'boost' ? 'text-green-300' :
                     log.type === 'damage' ? 'text-red-300' :
                     log.type === 'status' ? 'text-blue-300' :
@@ -1451,6 +1603,10 @@ function App() {
                   setBoostEffect([false, false]);
                   setItems([]);
                   setShowConfetti(false);
+                  setIsCritical(false);
+                  setScreenShake(false);
+                  setCritAttacker(null);
+                  setDamageText(null);
                   setStage('intro');
                 }}
                 className="flex-1 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-red-200 font-bold rounded-xl transition-all border border-red-500/30"
