@@ -451,6 +451,10 @@ function App() {
   const monster0Ref = useRef(null);
   const monster1Ref = useRef(null);
 
+  // Refs to track current drag state for touch handlers (avoids stale closures)
+  const draggedItemRef = useRef(null);
+  const dropTargetRef = useRef(null);
+
   // Initialize items when battle starts
   const initializeItems = () => {
     setItems([generateItem(), generateItem(), generateItem(), generateItem(), generateItem()]);
@@ -575,6 +579,7 @@ function App() {
   // Handle drag start (both mouse and touch)
   const handleDragStart = (item, e) => {
     setDraggedItem(item);
+    draggedItemRef.current = item;
     if (e.type === 'touch') {
       setDragPosition({ x: e.clientX, y: e.clientY });
     }
@@ -588,6 +593,8 @@ function App() {
     setDraggedItem(null);
     setDropTarget(null);
     setDragPosition(null);
+    draggedItemRef.current = null;
+    dropTargetRef.current = null;
   };
 
   // Touch move handler for mobile drag
@@ -607,31 +614,40 @@ function App() {
                touch.clientY >= rect.top && touch.clientY <= rect.bottom;
       };
 
+      let newTarget = null;
       if (checkDropTarget(monster0Ref)) {
-        setDropTarget(0);
+        newTarget = 0;
       } else if (checkDropTarget(monster1Ref)) {
-        setDropTarget(1);
-      } else {
-        setDropTarget(null);
+        newTarget = 1;
       }
+      setDropTarget(newTarget);
+      dropTargetRef.current = newTarget;
     };
 
     const handleTouchEnd = (e) => {
       e.preventDefault();
+      // Use refs to get current values (avoids stale closure)
+      const currentItem = draggedItemRef.current;
+      const currentTarget = dropTargetRef.current;
+
       // Apply item if dropped on a target
-      if (draggedItem && dropTarget !== null) {
-        applyItemToMonster(draggedItem, dropTarget);
+      if (currentItem && currentTarget !== null) {
+        applyItemToMonster(currentItem, currentTarget);
       }
       // Reset drag state
       setDraggedItem(null);
       setDropTarget(null);
       setDragPosition(null);
+      draggedItemRef.current = null;
+      dropTargetRef.current = null;
     };
 
     const handleTouchCancel = () => {
       setDraggedItem(null);
       setDropTarget(null);
       setDragPosition(null);
+      draggedItemRef.current = null;
+      dropTargetRef.current = null;
     };
 
     window.addEventListener('touchmove', handleTouchMove, { passive: false });
@@ -643,7 +659,7 @@ function App() {
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('touchcancel', handleTouchCancel);
     };
-  }, [draggedItem, dropTarget, stage]);
+  }, [draggedItem, stage]);
 
   // Apply item effect to monster
   const applyItemToMonster = (item, monsterIndex) => {
