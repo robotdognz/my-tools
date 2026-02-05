@@ -393,32 +393,29 @@ function Monster({ monster, isLeft, isAttacking, isHit, isWinner, boostEffect, i
 }
 
 // Draggable Item Component
-function DraggableItem({ item, onDragStart, onDragEnd }) {
-  const itemRef = useRef(null);
-  const [isDragging, setIsDragging] = useState(false);
-
+function DraggableItem({ item, onDragStart, onDragEnd, isTouchDragging }) {
   const handleDragStart = (e) => {
-    setIsDragging(true);
     onDragStart(item, e);
   };
 
   const handleTouchStart = (e) => {
     e.preventDefault();
-    setIsDragging(true);
+    e.stopPropagation();
     const touch = e.touches[0];
     onDragStart(item, { clientX: touch.clientX, clientY: touch.clientY, type: 'touch' });
   };
 
+  const isBeingDragged = isTouchDragging === item.id;
+
   return (
     <div
-      ref={itemRef}
       draggable
       onDragStart={handleDragStart}
-      onDragEnd={() => { setIsDragging(false); onDragEnd(); }}
+      onDragEnd={onDragEnd}
       onTouchStart={handleTouchStart}
       className={`draggable-item flex flex-col items-center justify-center rounded-xl bg-gradient-to-br ${item.color}
         shadow-lg border-2 border-white/20 ${item.isNew ? 'item-spawn' : 'item-wobble'}
-        ${isDragging ? 'dragging scale-110' : 'hover:scale-105'} transition-transform`}
+        ${isBeingDragged ? 'opacity-40' : 'hover:scale-105'} transition-transform`}
       style={{ width: 56, height: 56 }}
     >
       <span className="text-lg leading-none">{item.emoji}</span>
@@ -575,7 +572,7 @@ function App() {
     setRound(1);
   };
 
-  // Handle drag start
+  // Handle drag start (both mouse and touch)
   const handleDragStart = (item, e) => {
     setDraggedItem(item);
     if (e.type === 'touch') {
@@ -583,7 +580,7 @@ function App() {
     }
   };
 
-  // Handle drag end / drop
+  // Handle drag end (mouse only - touch is handled in useEffect)
   const handleDragEnd = () => {
     if (draggedItem && dropTarget !== null) {
       applyItemToMonster(draggedItem, dropTarget);
@@ -598,38 +595,55 @@ function App() {
     if (!draggedItem || stage !== 'battle') return;
 
     const handleTouchMove = (e) => {
+      e.preventDefault(); // Prevent scrolling while dragging
       const touch = e.touches[0];
       setDragPosition({ x: touch.clientX, y: touch.clientY });
 
       // Check if over a monster
-      const checkDropTarget = (ref, index) => {
+      const checkDropTarget = (ref) => {
         if (!ref.current) return false;
         const rect = ref.current.getBoundingClientRect();
         return touch.clientX >= rect.left && touch.clientX <= rect.right &&
                touch.clientY >= rect.top && touch.clientY <= rect.bottom;
       };
 
-      if (checkDropTarget(monster0Ref, 0)) {
+      if (checkDropTarget(monster0Ref)) {
         setDropTarget(0);
-      } else if (checkDropTarget(monster1Ref, 1)) {
+      } else if (checkDropTarget(monster1Ref)) {
         setDropTarget(1);
       } else {
         setDropTarget(null);
       }
     };
 
-    const handleTouchEnd = () => {
-      handleDragEnd();
+    const handleTouchEnd = (e) => {
+      e.preventDefault();
+      // Apply item if dropped on a target
+      if (draggedItem && dropTarget !== null) {
+        applyItemToMonster(draggedItem, dropTarget);
+      }
+      // Reset drag state
+      setDraggedItem(null);
+      setDropTarget(null);
+      setDragPosition(null);
+    };
+
+    const handleTouchCancel = () => {
+      setDraggedItem(null);
+      setDropTarget(null);
+      setDragPosition(null);
     };
 
     window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleTouchEnd);
+    window.addEventListener('touchend', handleTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', handleTouchCancel);
 
     return () => {
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchCancel);
     };
-  }, [draggedItem, stage]);
+  }, [draggedItem, dropTarget, stage]);
 
   // Apply item effect to monster
   const applyItemToMonster = (item, monsterIndex) => {
@@ -1140,6 +1154,7 @@ function App() {
                       item={item}
                       onDragStart={handleDragStart}
                       onDragEnd={handleDragEnd}
+                      isTouchDragging={draggedItem?.id}
                     />
                   ) : (
                     <div
