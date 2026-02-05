@@ -336,11 +336,16 @@ function ProbabilitySliders({ states, sliderValues, onSliderChange, onResetSlide
 
   return (
     <div className="space-y-4">
-      <div className="space-y-3">
+      <div className="space-y-4">
         {states.map((state, idx) => (
-          <div key={idx} className="flex items-center gap-3">
-            <div className="w-24 text-sm text-gray-700 truncate" title={state}>
-              {state}
+          <div key={idx}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-sm text-gray-700 font-medium">
+                {state}
+              </div>
+              <span className="text-sm font-medium text-cyan-700">
+                {(probabilities[idx] * 100).toFixed(0)}%
+              </span>
             </div>
             <input
               type="range"
@@ -348,13 +353,8 @@ function ProbabilitySliders({ states, sliderValues, onSliderChange, onResetSlide
               max="100"
               value={sliderValues[idx]}
               onChange={(e) => onSliderChange(idx, parseInt(e.target.value))}
-              className="flex-1"
+              className="w-full"
             />
-            <div className="w-16 text-right">
-              <span className="text-sm font-medium text-cyan-700">
-                {(probabilities[idx] * 100).toFixed(0)}%
-              </span>
-            </div>
           </div>
         ))}
       </div>
@@ -477,17 +477,8 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
           text: `Recommended: ${formatBestActions(calculations.hurwicz)}`,
         });
         setShareStatus('shared');
-      } else if (navigator.share) {
-        // Share without file (some browsers)
-        const bestChoice = formatBestActions(calculations.hurwicz);
-        const riskLevel = hurwiczAlpha < 0.3 ? 'Cautious' : hurwiczAlpha > 0.7 ? 'Optimistic' : 'Balanced';
-        await navigator.share({
-          title: 'Decision Matrix Result',
-          text: `My decision analysis (${riskLevel} approach): ${bestChoice}\n\nMade with Marco's Tools`,
-        });
-        setShareStatus('shared');
       } else {
-        // Fallback: download the image
+        // Download image when file sharing not supported
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -501,7 +492,7 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
         // User didn't cancel, try clipboard fallback
         const bestChoice = formatBestActions(calculations.hurwicz);
         const riskLevel = hurwiczAlpha < 0.3 ? 'Cautious' : hurwiczAlpha > 0.7 ? 'Optimistic' : 'Balanced';
-        const text = `Decision: ${bestChoice} (${riskLevel})\nMade with Marco's Tools`;
+        const text = `Decision: ${bestChoice} (${riskLevel})\nMade with Marco's Decision Tools`;
         await navigator.clipboard.writeText(text);
         setShareStatus('copied');
       } else {
@@ -610,7 +601,7 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
           </div>
 
           <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', letterSpacing: 0 }}>
-            {'Made with Marco\'s Tools'}
+            {'Made with Marco\'s Decision Tools'}
           </div>
         </div>
       </div>

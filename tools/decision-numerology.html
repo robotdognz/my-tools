@@ -44,12 +44,68 @@
       background-repeat: repeat;
       background-size: 200px 100px;
     }
+
+    @keyframes confetti-fall {
+      0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      top: -10px;
+      animation: confetti-fall 3s ease-out forwards;
+      z-index: 1000;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
+
+// Confetti component
+function Confetti({ show }) {
+  const [pieces, setPieces] = useState([]);
+
+  useEffect(() => {
+    if (show) {
+      const colors = ['#9333ea', '#ec4899', '#06b6d4', '#fbbf24', '#22c55e', '#8b5cf6'];
+      const newPieces = Array.from({ length: 50 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        delay: Math.random() * 0.5,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 6 + Math.random() * 8,
+      }));
+      setPieces(newPieces);
+      const timer = setTimeout(() => setPieces([]), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [show]);
+
+  if (!show || pieces.length === 0) return null;
+
+  return (
+    <>
+      {pieces.map(piece => (
+        <div
+          key={piece.id}
+          className="confetti"
+          style={{
+            left: `${piece.left}%`,
+            backgroundColor: piece.color,
+            width: piece.size,
+            height: piece.size,
+            animationDelay: `${piece.delay}s`,
+            borderRadius: Math.random() > 0.5 ? '50%' : '0',
+          }}
+        />
+      ))}
+    </>
+  );
+}
 
 // Root number meanings for decision guidance
 const ROOT_MEANINGS = {
@@ -535,6 +591,7 @@ function App() {
   const [shareStatus, setShareStatus] = useState(null);
   const [history, setHistory] = useState([]);
   const [singleMode, setSingleMode] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
   const shareCardRef = useRef(null);
 
   useEffect(() => {
@@ -610,6 +667,7 @@ function App() {
       setHistory(loadHistory());
 
       setIsReading(false);
+      setShowConfetti(true);
       setStage('reading');
     }, 2000);
   };
@@ -639,13 +697,8 @@ function App() {
           text: shareText,
         });
         setShareStatus('shared');
-      } else if (navigator.share) {
-        await navigator.share({
-          title: 'Decision Numerology',
-          text: shareText + '\n\nMade with Marco\'s Tools',
-        });
-        setShareStatus('shared');
       } else {
+        // Download image when file sharing not supported
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -657,8 +710,8 @@ function App() {
     } catch (err) {
       if (err.name !== 'AbortError') {
         const fallbackText = results.isSingleMode
-          ? `Numerology reading for: ${results.winner.choice} (Root: ${results.winner.rootNumber})\nMade with Marco's Tools`
-          : `The cosmos chose: ${results.winner.choice}\nMade with Marco's Tools`;
+          ? `Numerology reading for: ${results.winner.choice} (Root: ${results.winner.rootNumber})\nMade with Marco's Decision Tools`
+          : `The cosmos chose: ${results.winner.choice}\nMade with Marco's Decision Tools`;
         await navigator.clipboard.writeText(fallbackText);
         setShareStatus('copied');
       } else {
@@ -962,6 +1015,7 @@ function App() {
 
         {stage === 'reading' && results && (
           <div className="bg-slate-900/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border border-purple-500/30 max-h-[85vh] overflow-auto">
+            <Confetti show={showConfetti} />
             {/* Hidden share card */}
             <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
               <div
@@ -974,8 +1028,8 @@ function App() {
                 }}
               >
                 <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                  <div style={{ fontSize: 32 }}>🔮</div>
-                  <div style={{ fontSize: 14, color: '#c4b5fd', marginTop: 8, letterSpacing: 0 }}>{'Decision Numerology'}</div>
+                  <div style={{ fontSize: 32 }}>✨</div>
+                  <div style={{ fontSize: 14, color: '#c4b5fd', marginTop: 8, letterSpacing: 0 }}>{'Numerological Reading'}</div>
                 </div>
 
                 <div style={{
@@ -983,58 +1037,79 @@ function App() {
                   borderRadius: 12,
                   padding: 20,
                   textAlign: 'center',
+                  boxShadow: '0 0 20px rgba(147, 51, 234, 0.5)',
                 }}>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginBottom: 8, letterSpacing: 0 }}>
-                    {results.isSingleMode ? 'Numerology reading for' : 'The cosmos chose'}
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 6, letterSpacing: 0, fontStyle: 'italic' }}>
+                    {results.guidancePhrase}
                   </div>
-                  <div style={{ fontSize: 24, fontWeight: 'bold', color: 'white', letterSpacing: 0 }}>{results.winner.choice}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 8, letterSpacing: 0 }}>
-                    {'Root number: '}{results.winner.rootNumber}
-                    {results.isSingleMode ? ' | Score: ' + results.winner.score + ' pts' : ' | Confidence: ' + results.confidence + '%'}
+                  <div style={{ fontSize: 22, fontWeight: 'bold', color: 'white', letterSpacing: 0 }}>{results.winner.choice}</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12 }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', letterSpacing: 0 }}>{'Root'}</div>
+                      <div style={{ fontSize: 18, fontWeight: 'bold', color: '#fbbf24' }}>{results.winner.rootNumber}</div>
+                    </div>
+                    <div style={{ width: 1, background: 'rgba(255,255,255,0.2)' }} />
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', letterSpacing: 0 }}>{results.isSingleMode ? 'Score' : 'Confidence'}</div>
+                      <div style={{ fontSize: 18, fontWeight: 'bold', color: '#fbbf24' }}>{results.isSingleMode ? results.winner.score : results.confidence + '%'}</div>
+                    </div>
                   </div>
+                  {ROOT_MEANINGS[results.winner.rootNumber] && (
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 10, letterSpacing: 0, fontStyle: 'italic' }}>
+                      "{ROOT_MEANINGS[results.winner.rootNumber].meaning}"
+                    </div>
+                  )}
                 </div>
 
+                {/* Show best equation for winner */}
+                {results.winner.findings?.multiNumber?.[0] && (
+                  <div style={{
+                    background: 'rgba(251, 191, 36, 0.15)',
+                    border: '1px solid rgba(251, 191, 36, 0.3)',
+                    borderRadius: 10,
+                    padding: 12,
+                    marginTop: 12,
+                    textAlign: 'center',
+                  }}>
+                    <div style={{ fontSize: 10, color: '#a78bfa', marginBottom: 4, letterSpacing: 0 }}>{'Cosmic Connection Found'}</div>
+                    <div style={{ color: '#fbbf24', fontSize: 12, fontFamily: 'monospace', letterSpacing: 0 }}>
+                      {results.winner.findings.multiNumber[0].equation} = {results.winner.findings.multiNumber[0].result}
+                    </div>
+                    <div style={{ color: '#d8b4fe', fontSize: 10, marginTop: 4, letterSpacing: 0 }}>
+                      → {results.winner.findings.multiNumber[0].resultName} ({results.winner.findings.multiNumber[0].accuracy}% match)
+                    </div>
+                  </div>
+                )}
+
+                {/* Score comparison for multiple choices */}
                 {!results.isSingleMode && (
                   <div style={{
-                    background: 'rgba(255,255,255,0.1)',
-                    borderRadius: 12,
-                    padding: 16,
-                    marginTop: 16,
+                    background: 'rgba(255,255,255,0.08)',
+                    borderRadius: 10,
+                    padding: 12,
+                    marginTop: 12,
                   }}>
                     {results.scores.map((s, idx) => (
                       <div key={idx} style={{
                         display: 'flex',
                         justifyContent: 'space-between',
+                        alignItems: 'center',
                         padding: '6px 0',
-                        borderBottom: idx < results.scores.length - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none',
-                        color: idx === 0 ? '#fbbf24' : '#a78bfa',
-                        fontSize: 14,
-                        letterSpacing: 0,
+                        borderBottom: idx < results.scores.length - 1 ? '1px solid rgba(255,255,255,0.08)' : 'none',
                       }}>
-                        <span>{idx === 0 ? '\u2605 ' : ''}{s.choice}</span>
-                        <span>{s.score} pts</span>
+                        <span style={{ color: idx === 0 ? '#fbbf24' : '#a78bfa', fontSize: 13, letterSpacing: 0 }}>
+                          {idx === 0 ? '★ ' : ''}{s.choice}
+                        </span>
+                        <span style={{ color: idx === 0 ? '#fbbf24' : '#a78bfa', fontSize: 13, fontWeight: 'bold', letterSpacing: 0 }}>
+                          {s.score} pts
+                        </span>
                       </div>
                     ))}
                   </div>
                 )}
-                {results.isSingleMode && results.winner.findings?.multiNumber?.[0] && (
-                  <div style={{
-                    background: 'rgba(255,255,255,0.1)',
-                    borderRadius: 12,
-                    padding: 16,
-                    marginTop: 16,
-                  }}>
-                    <div style={{ color: '#fbbf24', fontSize: 12, fontFamily: 'monospace', letterSpacing: 0 }}>
-                      {results.winner.findings.multiNumber[0].equation} = {results.winner.findings.multiNumber[0].result}
-                    </div>
-                    <div style={{ color: '#a78bfa', fontSize: 11, marginTop: 4, letterSpacing: 0 }}>
-                      → {results.winner.findings.multiNumber[0].resultName}
-                    </div>
-                  </div>
-                )}
 
                 <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 16 }}>
-                  {'Made with Marco\'s Tools'}
+                  {'Made with Marco\'s Decision Tools'}
                 </div>
               </div>
             </div>

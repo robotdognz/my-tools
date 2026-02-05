@@ -15,12 +15,68 @@
     * { -webkit-tap-highlight-color: transparent; }
     html, body, #root { height: 100%; margin: 0; overflow: hidden; }
     .allow-scroll { overflow: auto !important; }
+
+    @keyframes confetti-fall {
+      0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      top: -10px;
+      animation: confetti-fall 3s ease-out forwards;
+      z-index: 1000;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useCallback, useRef, useEffect } = React;
+
+// Confetti component
+function Confetti({ show }) {
+  const [pieces, setPieces] = useState([]);
+
+  useEffect(() => {
+    if (show) {
+      const colors = ['#7c3aed', '#06b6d4', '#f59e0b', '#10b981', '#ef4444', '#ec4899'];
+      const newPieces = Array.from({ length: 50 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        delay: Math.random() * 0.5,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 6 + Math.random() * 8,
+      }));
+      setPieces(newPieces);
+      const timer = setTimeout(() => setPieces([]), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [show]);
+
+  if (!show || pieces.length === 0) return null;
+
+  return (
+    <>
+      {pieces.map(piece => (
+        <div
+          key={piece.id}
+          className="confetti"
+          style={{
+            left: `${piece.left}%`,
+            backgroundColor: piece.color,
+            width: piece.size,
+            height: piece.size,
+            animationDelay: `${piece.delay}s`,
+            borderRadius: Math.random() > 0.5 ? '50%' : '0',
+          }}
+        />
+      ))}
+    </>
+  );
+}
 
 const MODES = {
   turbo: {
@@ -498,6 +554,7 @@ function StrengthChart({ options, scores }) {
 function ResultsView({ comparisonsMade, mode, scores, options, reset }) {
   const [activeTab, setActiveTab] = useState('network');
   const [shareStatus, setShareStatus] = useState(null);
+  const [showConfetti, setShowConfetti] = useState(true);
   const shareCardRef = useRef(null);
 
   const rankedOptions = [...options].sort((a, b) => (scores[b] || 0) - (scores[a] || 0));
@@ -523,13 +580,8 @@ function ResultsView({ comparisonsMade, mode, scores, options, reset }) {
           text: `My top choice: ${rankedOptions[0]}`,
         });
         setShareStatus('shared');
-      } else if (navigator.share) {
-        await navigator.share({
-          title: 'Choice Ranker Results',
-          text: `My ranking:\n${rankedOptions.map((o, i) => `${i + 1}. ${o}`).join('\n')}\n\nMade with Marco's Tools`,
-        });
-        setShareStatus('shared');
       } else {
+        // Download image when file sharing not supported
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -540,7 +592,7 @@ function ResultsView({ comparisonsMade, mode, scores, options, reset }) {
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
-        const text = `My ranking: ${rankedOptions.slice(0, 3).join(', ')}...\nMade with Marco's Tools`;
+        const text = `My ranking: ${rankedOptions.slice(0, 3).join(', ')}...\nMade with Marco's Decision Tools`;
         await navigator.clipboard.writeText(text);
         setShareStatus('copied');
       } else {
@@ -569,6 +621,7 @@ function ResultsView({ comparisonsMade, mode, scores, options, reset }) {
 
   return (
     <div className="bg-white rounded-2xl shadow-xl p-8">
+      <Confetti show={showConfetti} />
       {/* Hidden share card */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
         <div
@@ -617,7 +670,7 @@ function ResultsView({ comparisonsMade, mode, scores, options, reset }) {
           </div>
 
           <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 16 }}>
-            {'Made with Marco\'s Tools'}
+            {'Made with Marco\'s Decision Tools'}
           </div>
         </div>
       </div>

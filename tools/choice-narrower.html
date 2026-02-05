@@ -54,12 +54,68 @@
     .survivor {
       transition: all 0.5s ease-out;
     }
+
+    @keyframes confetti-fall {
+      0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      top: -10px;
+      animation: confetti-fall 3s ease-out forwards;
+      z-index: 1000;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
+
+// Confetti component
+function Confetti({ show }) {
+  const [pieces, setPieces] = useState([]);
+
+  useEffect(() => {
+    if (show) {
+      const colors = ['#22c55e', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
+      const newPieces = Array.from({ length: 50 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        delay: Math.random() * 0.5,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 6 + Math.random() * 8,
+      }));
+      setPieces(newPieces);
+      const timer = setTimeout(() => setPieces([]), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [show]);
+
+  if (!show || pieces.length === 0) return null;
+
+  return (
+    <>
+      {pieces.map(piece => (
+        <div
+          key={piece.id}
+          className="confetti"
+          style={{
+            left: `${piece.left}%`,
+            backgroundColor: piece.color,
+            width: piece.size,
+            height: piece.size,
+            animationDelay: `${piece.delay}s`,
+            borderRadius: Math.random() > 0.5 ? '50%' : '0',
+          }}
+        />
+      ))}
+    </>
+  );
+}
 
 // localStorage helpers
 const STORAGE_KEY = 'choice-narrower-history';
@@ -99,6 +155,7 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
   const [survivors, setSurvivors] = useState([]);
   const [eliminationHistory, setEliminationHistory] = useState([]);
   const [shareStatus, setShareStatus] = useState(null);
+  const [showConfetti, setShowConfetti] = useState(false);
   const shareCardRef = useRef(null);
   const timeoutRef = useRef(null);
 
@@ -123,15 +180,8 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
           text: survivors.length === 1 ? `Winner: ${survivors[0]}` : `Survivors: ${survivors.join(', ')}`,
         });
         setShareStatus('shared');
-      } else if (navigator.share) {
-        await navigator.share({
-          title: 'Choice Narrower Results',
-          text: survivors.length === 1
-            ? `The winner is: ${survivors[0]}\n\nMade with Marco's Tools`
-            : `Survivors: ${survivors.join(', ')}\n\nMade with Marco's Tools`,
-        });
-        setShareStatus('shared');
       } else {
+        // Download image when file sharing not supported
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -143,7 +193,7 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
     } catch (err) {
       if (err.name !== 'AbortError') {
         const text = survivors.length === 1 ? `Winner: ${survivors[0]}` : `Survivors: ${survivors.join(', ')}`;
-        await navigator.clipboard.writeText(text + '\nMade with Marco\'s Tools');
+        await navigator.clipboard.writeText(text + '\nMade with Marco\'s Decision Tools');
         setShareStatus('copied');
       } else {
         setShareStatus(null);
@@ -189,6 +239,7 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
 
       if (alive.length <= keepCount) {
         setPhase('done');
+        setShowConfetti(true);
         setSurvivors(alive.map(a => a.text));
         onComplete(alive.map(a => a.text));
         return currentItems;
@@ -217,6 +268,7 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
             timeoutRef.current = setTimeout(() => eliminateNext(), 300);
           } else {
             setPhase('done');
+            setShowConfetti(true);
             const finalSurvivors = alive.filter(a => a.id !== victim.id).map(a => a.text);
             setSurvivors(finalSurvivors);
             onComplete(finalSurvivors);
@@ -344,6 +396,7 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
 
       {phase === 'done' && (
         <div className="text-center">
+          <Confetti show={showConfetti} />
           {/* Hidden share card */}
           <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
             <div
@@ -393,7 +446,7 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
               </div>
 
               <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 16 }}>
-                {'Made with Marco\'s Tools'}
+                {'Made with Marco\'s Decision Tools'}
               </div>
             </div>
           </div>

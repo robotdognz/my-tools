@@ -73,6 +73,21 @@
       100% { opacity: 0; transform: translateY(-30px); }
     }
 
+    @keyframes item-spawn {
+      0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    @keyframes item-wobble {
+      0%, 100% { transform: rotate(-3deg); }
+      50% { transform: rotate(3deg); }
+    }
+
+    @keyframes drop-zone-pulse {
+      0%, 100% { transform: scale(1); opacity: 0.5; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
     .shake { animation: shake 0.3s ease-in-out; }
     .hit-left { animation: hit-left 0.3s ease-in-out; }
     .hit-right { animation: hit-right 0.3s ease-in-out; }
@@ -83,6 +98,9 @@
     .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
     .boost-pulse { animation: boost-pulse 0.3s ease-out; }
     .powerup-float { animation: powerup-float 0.8s ease-out forwards; }
+    .item-spawn { animation: item-spawn 0.4s ease-out; }
+    .item-wobble { animation: item-wobble 1s ease-in-out infinite; }
+    .drop-zone-pulse { animation: drop-zone-pulse 1s ease-in-out infinite; }
 
     .health-bar {
       transition: width 0.3s ease-out;
@@ -91,12 +109,107 @@
     .monster-glow {
       filter: drop-shadow(0 0 8px currentColor);
     }
+
+    .draggable-item {
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .draggable-item:active {
+      cursor: grabbing;
+    }
+
+    .dragging {
+      opacity: 0.8;
+      z-index: 1000;
+    }
+
+    @keyframes confetti-fall {
+      0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      top: -10px;
+      animation: confetti-fall 3s ease-out forwards;
+      z-index: 1000;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback } = React;
+
+// Confetti component
+function Confetti({ show }) {
+  const [pieces, setPieces] = useState([]);
+
+  useEffect(() => {
+    if (show) {
+      const colors = ['#ef4444', '#f59e0b', '#fbbf24', '#22c55e', '#8b5cf6', '#ec4899'];
+      const newPieces = Array.from({ length: 50 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        delay: Math.random() * 0.5,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 6 + Math.random() * 8,
+      }));
+      setPieces(newPieces);
+      const timer = setTimeout(() => setPieces([]), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [show]);
+
+  if (!show || pieces.length === 0) return null;
+
+  return (
+    <>
+      {pieces.map(piece => (
+        <div
+          key={piece.id}
+          className="confetti"
+          style={{
+            left: `${piece.left}%`,
+            backgroundColor: piece.color,
+            width: piece.size,
+            height: piece.size,
+            animationDelay: `${piece.delay}s`,
+            borderRadius: Math.random() > 0.5 ? '50%' : '0',
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+// Item types for the battle
+const ITEM_TYPES = [
+  { type: 'health', emoji: '🧪', name: 'Health Potion', color: 'from-green-500 to-emerald-600', effect: 'heal', minValue: 8, maxValue: 20, label: 'Heal' },
+  { type: 'power', emoji: '⚡', name: 'Power Boost', color: 'from-yellow-500 to-orange-600', effect: 'attack', minValue: 2, maxValue: 5, label: '+ATK' },
+  { type: 'shield', emoji: '🛡️', name: 'Shield', color: 'from-slate-400 to-slate-600', effect: 'defense', minValue: 2, maxValue: 5, label: '+DEF' },
+  { type: 'poison', emoji: '☠️', name: 'Poison', color: 'from-purple-500 to-pink-600', effect: 'damage', minValue: 10, maxValue: 25, label: 'Damage' },
+  { type: 'sleep', emoji: '💤', name: 'Sleep Spell', color: 'from-blue-500 to-indigo-600', effect: 'sleep', minValue: 1, maxValue: 2, label: 'Sleep' },
+];
+
+const MAX_SHELF_ITEMS = 5;
+
+let itemIdCounter = 0;
+function generateItem() {
+  const type = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
+  const value = Math.floor(Math.random() * (type.maxValue - type.minValue + 1)) + type.minValue;
+  itemIdCounter++;
+  return {
+    ...type,
+    id: `item-${Date.now()}-${itemIdCounter}`,
+    value,
+    isNew: true,
+  };
+}
 
 // localStorage helpers
 const STORAGE_KEY = 'decision-battle-history';
@@ -108,11 +221,12 @@ function loadHistory() {
   } catch { return []; }
 }
 
-function saveToHistory(choices) {
+function saveToHistory(choices, speed) {
   const history = loadHistory();
   const entry = {
     id: Date.now(),
     choices,
+    speed,
     date: new Date().toLocaleDateString(),
     preview: `${choices[0]} vs ${choices[1]}`
   };
@@ -186,20 +300,41 @@ function generateMonster(choice, index) {
     hp: 100,
     attack: 8,
     defense: 3,
+    sleepTurns: 0,
   };
 }
 
-function Monster({ monster, isLeft, isAttacking, isHit, isWinner, boostEffect }) {
-  const flipClass = isLeft ? '' : 'scale-x-[-1]';
-
+function Monster({ monster, isLeft, isAttacking, isHit, isWinner, boostEffect, isDropTarget, effectText, activeEffects }) {
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center relative">
+      {/* Effect text floating up */}
+      {effectText && (
+        <div className="absolute -top-2 left-1/2 -translate-x-1/2 pointer-events-none z-20">
+          <span className={`text-sm font-bold powerup-float ${
+            effectText.startsWith('+') ? 'text-green-400' :
+            effectText.startsWith('-') ? 'text-red-400' : 'text-yellow-300'
+          }`}>
+            {effectText}
+          </span>
+        </div>
+      )}
+
+      {/* Drop target indicator */}
+      {isDropTarget && (
+        <div className="absolute inset-0 -m-4 rounded-2xl border-4 border-dashed border-yellow-400 drop-zone-pulse z-10" />
+      )}
+
       {/* Monster name plate */}
       <div className={`text-center mb-2 px-3 py-1 rounded-lg ${monster.color.bg} shadow-lg`}>
         <p className="text-white text-xs font-bold truncate max-w-[100px]" title={monster.choice}>
           "{monster.choice}"
         </p>
       </div>
+
+      {/* Sleep indicator */}
+      {monster.sleepTurns > 0 && (
+        <div className="absolute top-8 right-0 text-lg z-10">💤</div>
+      )}
 
       {/* Monster with colored glow background */}
       <div className="relative">
@@ -209,7 +344,7 @@ function Monster({ monster, isLeft, isAttacking, isHit, isWinner, boostEffect })
         {/* Boost effect */}
         {boostEffect && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-2xl powerup-float">+</span>
+            <span className="text-2xl powerup-float">✨</span>
           </div>
         )}
 
@@ -221,7 +356,8 @@ function Monster({ monster, isLeft, isAttacking, isHit, isWinner, boostEffect })
             isLeft ? 'scale-x-[-1]' : ''
           } ${boostEffect ? 'boost-pulse' : ''}`}
           style={{
-            filter: monster.hp <= 0 ? 'grayscale(1) opacity(0.5)' : undefined,
+            filter: monster.hp <= 0 ? 'grayscale(1) opacity(0.5)' :
+                   monster.sleepTurns > 0 ? 'brightness(0.7)' : undefined,
             transform: (!isAttacking && !isHit && !isWinner && isLeft) ? 'scaleX(-1)' : undefined
           }}
         >
@@ -241,6 +377,53 @@ function Monster({ monster, isLeft, isAttacking, isHit, isWinner, boostEffect })
         />
       </div>
       <p className="text-white text-sm font-bold mt-1">{Math.max(0, Math.round(monster.hp))} HP</p>
+
+      {/* Active effects bar - fixed height to prevent layout shift */}
+      <div className="h-5 mt-1 flex items-center justify-center">
+        {activeEffects && activeEffects.length > 0 && (
+          <div className="flex gap-0.5 bg-black/30 rounded-full px-1.5 py-0.5">
+            {activeEffects.map((effect, idx) => (
+              <span key={idx} className="text-xs" title={effect.name}>{effect.emoji}</span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Draggable Item Component
+function DraggableItem({ item, onDragStart, onDragEnd }) {
+  const itemRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragStart = (e) => {
+    setIsDragging(true);
+    onDragStart(item, e);
+  };
+
+  const handleTouchStart = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+    const touch = e.touches[0];
+    onDragStart(item, { clientX: touch.clientX, clientY: touch.clientY, type: 'touch' });
+  };
+
+  return (
+    <div
+      ref={itemRef}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={() => { setIsDragging(false); onDragEnd(); }}
+      onTouchStart={handleTouchStart}
+      className={`draggable-item flex flex-col items-center justify-center rounded-xl bg-gradient-to-br ${item.color}
+        shadow-lg border-2 border-white/20 ${item.isNew ? 'item-spawn' : 'item-wobble'}
+        ${isDragging ? 'dragging scale-110' : 'hover:scale-105'} transition-transform`}
+      style={{ width: 56, height: 56 }}
+    >
+      <span className="text-lg leading-none">{item.emoji}</span>
+      <span className="text-[9px] text-white font-bold leading-tight">{item.label}</span>
+      <span className="text-[9px] text-white/80 leading-tight">+{item.value}</span>
     </div>
   );
 }
@@ -250,18 +433,49 @@ function App() {
   const [choices, setChoices] = useState(['', '']);
   const [monsters, setMonsters] = useState([null, null]);
   const [battleLog, setBattleLog] = useState([]);
-  const [userBoosts, setUserBoosts] = useState([0, 0]); // Track boosts given to each
+  const [itemsUsed, setItemsUsed] = useState([[], []]); // Track items used on each monster (for analysis)
+  const [activeEffects, setActiveEffects] = useState([[], []]); // Temporary display of active effects
   const [round, setRound] = useState(0);
   const [attackingMonster, setAttackingMonster] = useState(null);
   const [hitMonster, setHitMonster] = useState(null);
   const [winner, setWinner] = useState(null);
   const [boostEffect, setBoostEffect] = useState([false, false]);
-  const [battleSpeed, setBattleSpeed] = useState(800); // ms between attacks
+  const [effectTexts, setEffectTexts] = useState([null, null]);
+  const [battleSpeed, setBattleSpeed] = useState(800);
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [shareStatus, setShareStatus] = useState(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [items, setItems] = useState([]);
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
+  const [dragPosition, setDragPosition] = useState(null);
   const shareCardRef = useRef(null);
-  const battleIntervalRef = useRef(null);
+  const monster0Ref = useRef(null);
+  const monster1Ref = useRef(null);
+
+  // Initialize items when battle starts
+  const initializeItems = () => {
+    setItems([generateItem(), generateItem(), generateItem(), generateItem(), generateItem()]);
+  };
+
+  // Regenerate an item after use (only if there's room)
+  useEffect(() => {
+    if (stage === 'battle' && winner === null && items.length < MAX_SHELF_ITEMS) {
+      const timer = setTimeout(() => {
+        setItems(prev => {
+          if (prev.length >= MAX_SHELF_ITEMS) return prev;
+          return [...prev, generateItem()];
+        });
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [items.length, stage, winner]);
+
+  // Discard all items
+  const discardAllItems = () => {
+    setItems([]);
+  };
 
   const shareResults = async () => {
     if (!shareCardRef.current || winner === null) return;
@@ -282,18 +496,11 @@ function App() {
         await navigator.share({
           files: [file],
           title: 'Decision Battle Results',
-          text: `"${choices[winner]}" wins the battle!`,
+          text: `"${choices[winner]}" beats "${choices[1 - winner]}"!`,
         });
         setShareStatus('shared');
-      } else if (navigator.share) {
-        let text = `Decision Battle: "${choices[winner]}" wins!\n`;
-        if (analysis && !analysis.isTie) {
-          text += `My heart favored: "${analysis.favoredChoice}" (${analysis.favoredPercent}% of boosts)\n`;
-        }
-        text += '\nMade with Marco\'s Tools';
-        await navigator.share({ title: 'Decision Battle', text });
-        setShareStatus('shared');
       } else {
+        // Download image when file sharing not supported
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -304,7 +511,7 @@ function App() {
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
-        const text = `"${choices[winner]}" wins!\nMade with Marco's Tools`;
+        const text = `"${choices[winner]}" beats "${choices[1 - winner]}"!\nMade with Marco's Decision Tools`;
         await navigator.clipboard.writeText(text);
         setShareStatus('copied');
       } else {
@@ -340,7 +547,7 @@ function App() {
     }
 
     const trimmedChoices = [choices[0].trim(), choices[1].trim()];
-    saveToHistory(trimmedChoices);
+    saveToHistory(trimmedChoices, battleSpeed);
     setHistory(loadHistory());
 
     const m1 = generateMonster(trimmedChoices[0], 0);
@@ -351,6 +558,7 @@ function App() {
 
   const loadFromHistory = (entry) => {
     setChoices(entry.choices);
+    if (entry.speed) setBattleSpeed(entry.speed);
     setShowHistory(false);
   };
 
@@ -362,56 +570,224 @@ function App() {
 
   const beginFight = () => {
     setStage('battle');
-    addLog('The battle begins! Tap a monster to boost it!', 'announcement');
+    initializeItems();
+    addLog('Battle begins! Drag items onto monsters!', 'announcement');
     setRound(1);
   };
 
-  // Handle boost from user
-  const handleBoost = (index) => {
+  // Handle drag start
+  const handleDragStart = (item, e) => {
+    setDraggedItem(item);
+    if (e.type === 'touch') {
+      setDragPosition({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  // Handle drag end / drop
+  const handleDragEnd = () => {
+    if (draggedItem && dropTarget !== null) {
+      applyItemToMonster(draggedItem, dropTarget);
+    }
+    setDraggedItem(null);
+    setDropTarget(null);
+    setDragPosition(null);
+  };
+
+  // Touch move handler for mobile drag
+  useEffect(() => {
+    if (!draggedItem || stage !== 'battle') return;
+
+    const handleTouchMove = (e) => {
+      const touch = e.touches[0];
+      setDragPosition({ x: touch.clientX, y: touch.clientY });
+
+      // Check if over a monster
+      const checkDropTarget = (ref, index) => {
+        if (!ref.current) return false;
+        const rect = ref.current.getBoundingClientRect();
+        return touch.clientX >= rect.left && touch.clientX <= rect.right &&
+               touch.clientY >= rect.top && touch.clientY <= rect.bottom;
+      };
+
+      if (checkDropTarget(monster0Ref, 0)) {
+        setDropTarget(0);
+      } else if (checkDropTarget(monster1Ref, 1)) {
+        setDropTarget(1);
+      } else {
+        setDropTarget(null);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      handleDragEnd();
+    };
+
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [draggedItem, stage]);
+
+  // Apply item effect to monster
+  const applyItemToMonster = (item, monsterIndex) => {
     if (stage !== 'battle' || winner !== null) return;
 
-    // Track the boost
-    setUserBoosts(prev => {
-      const newBoosts = [...prev];
-      newBoosts[index]++;
-      return newBoosts;
+    const effectId = `${item.id}-${Date.now()}`;
+
+    // Track item usage (for analysis)
+    setItemsUsed(prev => {
+      const newUsed = [...prev];
+      newUsed[monsterIndex] = [...newUsed[monsterIndex], item];
+      return newUsed;
     });
 
-    // Apply small heal/attack boost
+    // Remove item from shelf
+    setItems(prev => prev.filter(i => i.id !== item.id));
+
+    // Show effect text
+    let effectText = '';
+
+    // Duration for showing effect icon (immediate effects shorter, buffs longer)
+    const isImmediate = ['heal', 'damage'].includes(item.effect);
+    const displayDuration = isImmediate ? 1500 : 3000;
+
+    // Add to active effects display
+    setActiveEffects(prev => {
+      const newEffects = [...prev];
+      newEffects[monsterIndex] = [...newEffects[monsterIndex], { id: effectId, emoji: item.emoji, name: item.name, effect: item.effect }];
+      return newEffects;
+    });
+
+    // Remove from display after duration (sleep is handled separately when sleepTurns reaches 0)
+    if (item.effect !== 'sleep') {
+      setTimeout(() => {
+        setActiveEffects(prev => {
+          const newEffects = [...prev];
+          newEffects[monsterIndex] = newEffects[monsterIndex].filter(e => e.id !== effectId);
+          return newEffects;
+        });
+      }, displayDuration);
+    }
+
+    // Apply effect
+    let wasLethal = false;
     setMonsters(prev => {
       const newMonsters = [...prev];
-      newMonsters[index] = {
-        ...newMonsters[index],
-        hp: Math.min(newMonsters[index].maxHp, newMonsters[index].hp + 3),
-        attack: newMonsters[index].attack + 0.5,
-      };
+      const target = { ...newMonsters[monsterIndex] };
+
+      switch (item.effect) {
+        case 'heal':
+          target.hp = Math.min(target.maxHp, target.hp + item.value);
+          effectText = `+${item.value} HP`;
+          addLog(`${item.emoji} ${target.fullName} healed for ${item.value} HP!`, 'boost');
+          break;
+        case 'attack':
+          target.attack += item.value;
+          effectText = `+${item.value} ATK`;
+          addLog(`${item.emoji} ${target.fullName} gained ${item.value} attack!`, 'boost');
+          break;
+        case 'defense':
+          target.defense += item.value;
+          effectText = `+${item.value} DEF`;
+          addLog(`${item.emoji} ${target.fullName} gained ${item.value} defense!`, 'boost');
+          break;
+        case 'damage':
+          target.hp -= item.value;
+          effectText = `-${item.value} HP`;
+          addLog(`${item.emoji} ${target.fullName} took ${item.value} poison damage!`, 'damage');
+          // Check if this kills the target
+          if (target.hp <= 0) {
+            wasLethal = true;
+          }
+          break;
+        case 'sleep':
+          target.sleepTurns += item.value;
+          effectText = `💤 ${item.value}`;
+          addLog(`${item.emoji} ${target.fullName} fell asleep for ${item.value} turns!`, 'status');
+          break;
+      }
+
+      newMonsters[monsterIndex] = target;
+
+      // Handle lethal damage - declare winner
+      if (wasLethal) {
+        const winnerIndex = 1 - monsterIndex;
+        setTimeout(() => {
+          setWinner(winnerIndex);
+          setShowConfetti(true);
+          setStage('result');
+          addLog(`${newMonsters[winnerIndex].fullName} wins!`, 'victory');
+        }, 400);
+      }
+
       return newMonsters;
     });
 
-    // Visual effect
+    // Show effect text
+    setEffectTexts(prev => {
+      const newTexts = [...prev];
+      newTexts[monsterIndex] = effectText;
+      return newTexts;
+    });
+    setTimeout(() => {
+      setEffectTexts(prev => {
+        const newTexts = [...prev];
+        newTexts[monsterIndex] = null;
+        return newTexts;
+      });
+    }, 800);
+
+    // Visual boost effect
     setBoostEffect(prev => {
       const newEffect = [...prev];
-      newEffect[index] = true;
+      newEffect[monsterIndex] = true;
       return newEffect;
     });
     setTimeout(() => {
       setBoostEffect(prev => {
         const newEffect = [...prev];
-        newEffect[index] = false;
+        newEffect[monsterIndex] = false;
         return newEffect;
       });
     }, 300);
-
-    addLog(`You boost ${monsters[index].fullName}! (+3 HP)`, 'boost');
   };
 
   // Battle loop
   useEffect(() => {
     if (stage !== 'battle' || round === 0 || winner !== null) return;
 
+    // Check if any monster is already defeated
+    if (monsters[0]?.hp <= 0 || monsters[1]?.hp <= 0) return;
+
     const executeAttack = () => {
       const attacker = round % 2 === 1 ? 0 : 1;
       const defender = 1 - attacker;
+
+      // Check if attacker is asleep
+      if (monsters[attacker]?.sleepTurns > 0) {
+        const newSleepTurns = monsters[attacker].sleepTurns - 1;
+        setMonsters(prev => {
+          const newMonsters = [...prev];
+          newMonsters[attacker] = {
+            ...newMonsters[attacker],
+            sleepTurns: newSleepTurns
+          };
+          return newMonsters;
+        });
+        // Remove sleep effect from display when it wears off
+        if (newSleepTurns === 0) {
+          setActiveEffects(prev => {
+            const newEffects = [...prev];
+            newEffects[attacker] = newEffects[attacker].filter(e => e.effect !== 'sleep');
+            return newEffects;
+          });
+        }
+        addLog(`${monsters[attacker].fullName} is asleep! 💤`);
+        return;
+      }
 
       setAttackingMonster(attacker);
 
@@ -432,6 +808,7 @@ function App() {
           if (newMonsters[defender].hp <= 0) {
             setTimeout(() => {
               setWinner(attacker);
+              setShowConfetti(true);
               setStage('result');
               addLog(`${prev[attacker].fullName} wins!`, 'victory');
             }, 400);
@@ -449,30 +826,44 @@ function App() {
 
     const timer = setTimeout(() => {
       executeAttack();
-      if (winner === null) {
+      // Only increment round if no monster is defeated
+      if (winner === null && monsters[0]?.hp > 0 && monsters[1]?.hp > 0) {
         setRound(prev => prev + 1);
       }
     }, battleSpeed);
 
     return () => clearTimeout(timer);
-  }, [round, stage, winner, battleSpeed]);
+  }, [round, stage, winner, battleSpeed, monsters]);
 
   const getAnalysis = () => {
-    const total = userBoosts[0] + userBoosts[1];
+    const counts = [itemsUsed[0].length, itemsUsed[1].length];
+    const total = counts[0] + counts[1];
     if (total === 0) return null;
 
-    const favoredIndex = userBoosts[0] > userBoosts[1] ? 0 : userBoosts[1] > userBoosts[0] ? 1 : null;
+    // Count helpful vs harmful items per monster
+    const helpful0 = itemsUsed[0].filter(i => ['heal', 'attack', 'defense'].includes(i.effect)).length;
+    const helpful1 = itemsUsed[1].filter(i => ['heal', 'attack', 'defense'].includes(i.effect)).length;
+    const harmful0 = itemsUsed[0].filter(i => ['damage', 'sleep'].includes(i.effect)).length;
+    const harmful1 = itemsUsed[1].filter(i => ['damage', 'sleep'].includes(i.effect)).length;
+
+    // Net support = helpful items on self - harmful items received
+    const support0 = helpful0;
+    const support1 = helpful1;
+
+    const favoredIndex = support0 > support1 ? 0 : support1 > support0 ? 1 : null;
     const favoredPercent = favoredIndex !== null
-      ? Math.round((Math.max(userBoosts[0], userBoosts[1]) / total) * 100)
+      ? Math.round((Math.max(support0, support1) / (support0 + support1 || 1)) * 100)
       : 50;
 
     return {
       favoredIndex,
       favoredChoice: favoredIndex !== null ? choices[favoredIndex] : null,
-      boosts: userBoosts,
+      itemCounts: counts,
+      helpfulCounts: [helpful0, helpful1],
+      harmfulCounts: [harmful0, harmful1],
       total,
       favoredPercent,
-      isTie: userBoosts[0] === userBoosts[1],
+      isTie: support0 === support1,
     };
   };
 
@@ -481,16 +872,37 @@ function App() {
     setChoices(['', '']);
     setMonsters([null, null]);
     setBattleLog([]);
-    setUserBoosts([0, 0]);
+    setItemsUsed([[], []]);
+    setActiveEffects([[], []]);
     setRound(0);
     setAttackingMonster(null);
     setHitMonster(null);
     setWinner(null);
     setBoostEffect([false, false]);
+    setItems([]);
+    setShowConfetti(false);
   };
 
   return (
     <div className="h-full bg-gradient-to-br from-slate-900 via-red-950 to-slate-900 p-4 flex items-center justify-center overflow-auto">
+      <Confetti show={showConfetti} />
+
+      {/* Floating dragged item for touch */}
+      {draggedItem && dragPosition && (
+        <div
+          className="fixed pointer-events-none z-50"
+          style={{
+            left: dragPosition.x - 28,
+            top: dragPosition.y - 28,
+          }}
+        >
+          <div className={`w-[56px] h-[56px] flex flex-col items-center justify-center rounded-xl bg-gradient-to-br ${draggedItem.color} shadow-2xl border-2 border-white/50 scale-110`}>
+            <span className="text-lg">{draggedItem.emoji}</span>
+            <span className="text-[9px] text-white font-bold">{draggedItem.label}</span>
+          </div>
+        </div>
+      )}
+
       <a href="/my-tools/" className="absolute top-4 left-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors z-10">
         <svg className="w-5 h-5 text-red-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -536,26 +948,6 @@ function App() {
                   maxLength={30}
                 />
               </div>
-
-              <div className="pt-2">
-                <label className="text-red-200/80 text-sm mb-2 block">Battle Speed</label>
-                <div className="flex items-center gap-3">
-                  <span className="text-red-300/60 text-xs">Slow</span>
-                  <input
-                    type="range"
-                    min="200"
-                    max="1200"
-                    step="100"
-                    value={1400 - battleSpeed}
-                    onChange={(e) => setBattleSpeed(1400 - parseInt(e.target.value))}
-                    className="flex-1 accent-red-500"
-                  />
-                  <span className="text-red-300/60 text-xs">Fast</span>
-                </div>
-                <p className="text-center text-red-400/50 text-xs mt-1">
-                  {battleSpeed >= 1000 ? 'Slow' : battleSpeed >= 700 ? 'Normal' : battleSpeed >= 400 ? 'Fast' : 'Chaos!'}
-                </p>
-              </div>
             </div>
 
             {history.length > 0 && (
@@ -597,7 +989,8 @@ function App() {
             )}
 
             <div className="mt-4 p-3 bg-red-900/30 rounded-xl text-sm text-red-200/70">
-              <p>During battle, <strong>tap either monster to boost it</strong>. Your instincts will reveal which choice you truly favor!</p>
+              <p className="font-medium text-red-200 mb-1">⚔️ How to play:</p>
+              <p>Drag potions and spells onto the monsters during battle! Help one win to reveal your true preference.</p>
             </div>
 
             <button
@@ -629,9 +1022,36 @@ function App() {
               </p>
             </div>
 
-            <div className="p-3 bg-amber-900/30 rounded-xl text-sm text-amber-200/80 mb-4 text-center">
-              <p>Tap a monster during battle to boost it!</p>
-              <p className="text-xs text-amber-200/60 mt-1">Each tap: +3 HP, +0.5 Attack</p>
+            <div className="p-3 bg-amber-900/30 rounded-xl text-sm text-amber-200/80 mb-4">
+              <p className="font-medium text-amber-200 mb-2 text-center">🎮 Battle Controls</p>
+              <div className="flex justify-center gap-3 flex-wrap">
+                <span className="inline-flex items-center gap-1"><span className="text-lg">🧪</span> Heal</span>
+                <span className="inline-flex items-center gap-1"><span className="text-lg">⚡</span> Power</span>
+                <span className="inline-flex items-center gap-1"><span className="text-lg">🛡️</span> Shield</span>
+                <span className="inline-flex items-center gap-1"><span className="text-lg">☠️</span> Poison</span>
+                <span className="inline-flex items-center gap-1"><span className="text-lg">💤</span> Sleep</span>
+              </div>
+              <p className="text-xs text-amber-200/60 mt-2 text-center">Drag items onto monsters to help or hinder them!</p>
+            </div>
+
+            <div className="mb-4">
+              <label className="text-red-200/80 text-sm mb-2 block text-center">Battle Speed</label>
+              <div className="flex items-center gap-3">
+                <span className="text-red-300/60 text-xs">Slow</span>
+                <input
+                  type="range"
+                  min="200"
+                  max="1200"
+                  step="100"
+                  value={1400 - battleSpeed}
+                  onChange={(e) => setBattleSpeed(1400 - parseInt(e.target.value))}
+                  className="flex-1 accent-red-500"
+                />
+                <span className="text-red-300/60 text-xs">Fast</span>
+              </div>
+              <p className="text-center text-red-400/50 text-xs mt-1">
+                {battleSpeed >= 1000 ? 'Slow' : battleSpeed >= 700 ? 'Normal' : battleSpeed >= 400 ? 'Fast' : 'Chaos!'}
+              </p>
             </div>
 
             <button
@@ -648,15 +1068,19 @@ function App() {
             <div className="text-center mb-2">
               <span className="text-red-400 text-sm font-medium">Round {round}</span>
               <span className="text-red-400/50 text-xs ml-3">
-                Boosts: {userBoosts[0]} vs {userBoosts[1]}
+                Items: {itemsUsed[0].length} vs {itemsUsed[1].length}
               </span>
             </div>
 
-            {/* Battle arena - tappable monsters */}
-            <div className="flex justify-around items-center mb-4">
-              <button
-                onClick={() => handleBoost(0)}
-                className="focus:outline-none active:scale-95 transition-transform p-2 rounded-2xl hover:bg-white/5"
+            {/* Battle arena */}
+            <div className="flex justify-around items-center mb-3">
+              <div
+                ref={monster0Ref}
+                className="p-2 rounded-2xl transition-colors"
+                style={{ background: dropTarget === 0 ? 'rgba(250, 204, 21, 0.2)' : 'transparent' }}
+                onDragOver={(e) => { e.preventDefault(); setDropTarget(0); }}
+                onDragLeave={() => setDropTarget(null)}
+                onDrop={() => handleDragEnd()}
               >
                 <Monster
                   monster={monsters[0]}
@@ -664,14 +1088,21 @@ function App() {
                   isAttacking={attackingMonster === 0}
                   isHit={hitMonster === 0}
                   boostEffect={boostEffect[0]}
+                  isDropTarget={dropTarget === 0}
+                  effectText={effectTexts[0]}
+                  activeEffects={activeEffects[0]}
                 />
-              </button>
+              </div>
 
               <div className="text-2xl text-red-400 font-bold">⚔️</div>
 
-              <button
-                onClick={() => handleBoost(1)}
-                className="focus:outline-none active:scale-95 transition-transform p-2 rounded-2xl hover:bg-white/5"
+              <div
+                ref={monster1Ref}
+                className="p-2 rounded-2xl transition-colors"
+                style={{ background: dropTarget === 1 ? 'rgba(250, 204, 21, 0.2)' : 'transparent' }}
+                onDragOver={(e) => { e.preventDefault(); setDropTarget(1); }}
+                onDragLeave={() => setDropTarget(null)}
+                onDrop={() => handleDragEnd()}
               >
                 <Monster
                   monster={monsters[1]}
@@ -679,23 +1110,60 @@ function App() {
                   isAttacking={attackingMonster === 1}
                   isHit={hitMonster === 1}
                   boostEffect={boostEffect[1]}
+                  isDropTarget={dropTarget === 1}
+                  effectText={effectTexts[1]}
+                  activeEffects={activeEffects[1]}
                 />
-              </button>
+              </div>
             </div>
 
-            {/* Tap hint */}
-            <div className="text-center text-amber-300/70 text-xs mb-3 animate-pulse">
-              Tap a monster to boost it!
+            {/* Item Shelf */}
+            <div className="bg-gradient-to-b from-amber-900/50 to-amber-950/50 rounded-xl p-3 mb-3 border border-amber-600/30">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-amber-300/80 text-xs font-medium">
+                  ⬇️ Drag onto monsters
+                </div>
+                <button
+                  onClick={discardAllItems}
+                  className="text-[10px] px-2 py-1 bg-red-900/50 hover:bg-red-800/50 text-red-300 rounded transition-colors"
+                  disabled={items.length === 0}
+                >
+                  🗑️ Discard
+                </button>
+              </div>
+              <div className="flex justify-center gap-1">
+                {Array.from({ length: MAX_SHELF_ITEMS }).map((_, idx) => {
+                  const item = items[idx];
+                  return item ? (
+                    <DraggableItem
+                      key={item.id}
+                      item={item}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                    />
+                  ) : (
+                    <div
+                      key={`empty-${idx}`}
+                      className="w-[56px] h-[56px] rounded-xl border-2 border-dashed border-amber-600/30 flex items-center justify-center"
+                      style={{ background: 'rgba(0,0,0,0.2)' }}
+                    >
+                      <span className="text-amber-600/30 text-lg">?</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Battle log */}
-            <div className="h-16 overflow-y-auto bg-black/30 rounded-lg p-2 text-xs">
+            <div className="h-14 overflow-y-auto bg-black/30 rounded-lg p-2 text-xs">
               {battleLog.map(log => (
                 <p
                   key={log.id}
                   className={`${
                     log.type === 'announcement' ? 'text-yellow-300 font-bold' :
-                    log.type === 'boost' ? 'text-cyan-300' :
+                    log.type === 'boost' ? 'text-green-300' :
+                    log.type === 'damage' ? 'text-red-300' :
+                    log.type === 'status' ? 'text-blue-300' :
                     log.type === 'victory' ? 'text-green-400 font-bold' :
                     'text-red-200/80'
                   }`}
@@ -720,46 +1188,126 @@ function App() {
                   fontFamily: 'Arial, Helvetica, sans-serif',
                 }}
               >
-                <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                  <div style={{ fontSize: 48 }}>{monsters[winner].emoji}</div>
-                  <div style={{ fontSize: 20, fontWeight: 'bold', color: '#fbbf24', marginTop: 8, letterSpacing: 0 }}>{'Victory!'}</div>
-                  <div style={{ fontSize: 16, color: '#fecaca', marginTop: 4, letterSpacing: 0 }}>"{choices[winner]}" {'wins!'}</div>
+                {/* Battle matchup header */}
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 36 }}>{monsters[0].emoji}</div>
+                    <div style={{ fontSize: 10, color: winner === 0 ? '#fbbf24' : '#64748b', marginTop: 2, letterSpacing: 0 }}>
+                      {Math.max(0, Math.round(monsters[0].hp))} HP
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 20, color: '#ef4444' }}>⚔️</div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 36 }}>{monsters[1].emoji}</div>
+                    <div style={{ fontSize: 10, color: winner === 1 ? '#fbbf24' : '#64748b', marginTop: 2, letterSpacing: 0 }}>
+                      {Math.max(0, Math.round(monsters[1].hp))} HP
+                    </div>
+                  </div>
+                </div>
+
+                {/* Winner announcement */}
+                <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                  <div style={{ fontSize: 18, fontWeight: 'bold', color: '#fbbf24', letterSpacing: 0 }}>🏆 Victory!</div>
+                  <div style={{ fontSize: 14, color: '#fecaca', marginTop: 4, letterSpacing: 0 }}>"{choices[winner]}" wins!</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2, letterSpacing: 0 }}>vs "{choices[1 - winner]}"</div>
+                </div>
+
+                {/* Battle stats */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  gap: 24,
+                  background: 'rgba(0,0,0,0.3)',
+                  borderRadius: 8,
+                  padding: '8px 16px',
+                  marginBottom: 12,
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, color: '#fbbf24', fontWeight: 'bold' }}>{round}</div>
+                    <div style={{ fontSize: 9, color: '#94a3b8', letterSpacing: 0 }}>rounds</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, color: '#fbbf24', fontWeight: 'bold' }}>{itemsUsed[0].length + itemsUsed[1].length}</div>
+                    <div style={{ fontSize: 9, color: '#94a3b8', letterSpacing: 0 }}>items used</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, color: '#fbbf24', fontWeight: 'bold' }}>{Math.max(0, Math.round(monsters[winner].hp))}</div>
+                    <div style={{ fontSize: 9, color: '#94a3b8', letterSpacing: 0 }}>HP left</div>
+                  </div>
                 </div>
 
                 {(() => {
                   const analysis = getAnalysis();
-                  if (!analysis) return null;
+
+                  // No items used - show different content
+                  if (!analysis) {
+                    const winMargin = Math.round(monsters[winner].hp);
+                    const battleDescription = winMargin > 50 ? 'Dominant victory!' :
+                      winMargin > 25 ? 'A solid win.' :
+                      winMargin > 10 ? 'A close battle!' : 'Photo finish!';
+
+                    return (
+                      <div style={{
+                        background: 'rgba(51, 65, 85, 0.5)',
+                        borderRadius: 12,
+                        padding: 12,
+                        textAlign: 'center',
+                      }}>
+                        <div style={{ fontSize: 12, color: '#94a3b8', letterSpacing: 0 }}>{battleDescription}</div>
+                        <div style={{ fontSize: 10, color: '#64748b', marginTop: 6, letterSpacing: 0, fontStyle: 'italic' }}>
+                          Watched without intervention — letting fate decide.
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const getInterpretation = () => {
+                    if (analysis.isTie) return "Helped both equally — genuinely torn!";
+                    if (analysis.favoredPercent >= 75) return "Instincts strongly pulled this way!";
+                    if (analysis.favoredPercent >= 60) return "Showed a clear preference.";
+                    return "Fairly balanced between the two.";
+                  };
+
+                  const showFavoredNote = !analysis.isTie && analysis.favoredIndex !== winner;
+
                   return (
                     <div style={{
                       background: 'rgba(88, 28, 135, 0.5)',
                       borderRadius: 12,
-                      padding: 16,
-                      marginTop: 16,
+                      padding: 12,
                     }}>
-                      <div style={{ fontSize: 12, color: '#c4b5fd', textAlign: 'center', marginBottom: 8, letterSpacing: 0 }}>{'What My Heart Revealed'}</div>
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: 32 }}>
+                      <div style={{ fontSize: 11, color: '#c4b5fd', textAlign: 'center', marginBottom: 8, letterSpacing: 0 }}>What My Heart Revealed</div>
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: 24 }}>
                         <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 24 }}>{monsters[0].emoji}</div>
-                          <div style={{ fontSize: 16, color: '#e9d5ff', fontWeight: 'bold' }}>{analysis.boosts[0]}</div>
-                          <div style={{ fontSize: 10, color: '#a78bfa', letterSpacing: 0 }}>{'boosts'}</div>
+                          <div style={{ fontSize: 20 }}>{monsters[0].emoji}</div>
+                          <div style={{ fontSize: 14, color: '#e9d5ff', fontWeight: 'bold' }}>{analysis.helpfulCounts[0]}</div>
+                          <div style={{ fontSize: 9, color: '#a78bfa', letterSpacing: 0 }}>helpful</div>
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 24 }}>{monsters[1].emoji}</div>
-                          <div style={{ fontSize: 16, color: '#e9d5ff', fontWeight: 'bold' }}>{analysis.boosts[1]}</div>
-                          <div style={{ fontSize: 10, color: '#a78bfa', letterSpacing: 0 }}>{'boosts'}</div>
+                          <div style={{ fontSize: 20 }}>{monsters[1].emoji}</div>
+                          <div style={{ fontSize: 14, color: '#e9d5ff', fontWeight: 'bold' }}>{analysis.helpfulCounts[1]}</div>
+                          <div style={{ fontSize: 9, color: '#a78bfa', letterSpacing: 0 }}>helpful</div>
                         </div>
                       </div>
                       {!analysis.isTie && (
-                        <div style={{ fontSize: 12, color: '#fef08a', textAlign: 'center', marginTop: 12, letterSpacing: 0 }}>
-                          {'Favored: "'}{analysis.favoredChoice}{'" ('}{analysis.favoredPercent}{'%)'}
+                        <div style={{ fontSize: 11, color: '#fef08a', textAlign: 'center', marginTop: 8, letterSpacing: 0 }}>
+                          Favored: "{analysis.favoredChoice}" ({analysis.favoredPercent}%)
+                        </div>
+                      )}
+                      <div style={{ fontSize: 10, color: '#d8b4fe', textAlign: 'center', marginTop: 6, letterSpacing: 0, fontStyle: 'italic' }}>
+                        {getInterpretation()}
+                      </div>
+                      {showFavoredNote && (
+                        <div style={{ fontSize: 9, color: '#fcd34d', textAlign: 'center', marginTop: 6, letterSpacing: 0, fontStyle: 'italic' }}>
+                          Helped the loser more... protecting what we secretly want?
                         </div>
                       )}
                     </div>
                   );
                 })()}
 
-                <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 16 }}>
-                  {'Made with Marco\'s Tools'}
+                <div style={{ textAlign: 'center', fontSize: 10, color: '#64748b', marginTop: 12 }}>
+                  Marco's Decision Tools
                 </div>
               </div>
             </div>
@@ -801,7 +1349,7 @@ function App() {
               if (!analysis) return (
                 <div className="bg-slate-700/50 rounded-xl p-4 mb-4">
                   <p className="text-red-200/80 text-center text-sm">
-                    You didn't boost either monster. Try tapping them next time to reveal your preference!
+                    You didn't use any items. Try dragging potions onto monsters next time to reveal your preference!
                   </p>
                 </div>
               );
@@ -815,19 +1363,19 @@ function App() {
                   <div className="flex justify-center gap-6 mb-3">
                     <div className="text-center">
                       <div className={`text-3xl ${monsters[0].color.glow} monster-glow`}>{monsters[0].emoji}</div>
-                      <p className="text-purple-200 font-bold text-lg">{analysis.boosts[0]}</p>
-                      <p className="text-purple-300/60 text-xs">boosts</p>
+                      <p className="text-purple-200 font-bold text-lg">{analysis.helpfulCounts[0]}</p>
+                      <p className="text-purple-300/60 text-xs">helpful items</p>
                     </div>
                     <div className="text-center">
                       <div className={`text-3xl ${monsters[1].color.glow} monster-glow`}>{monsters[1].emoji}</div>
-                      <p className="text-purple-200 font-bold text-lg">{analysis.boosts[1]}</p>
-                      <p className="text-purple-300/60 text-xs">boosts</p>
+                      <p className="text-purple-200 font-bold text-lg">{analysis.helpfulCounts[1]}</p>
+                      <p className="text-purple-300/60 text-xs">helpful items</p>
                     </div>
                   </div>
 
                   {analysis.isTie ? (
                     <p className="text-purple-200 text-center text-sm">
-                      You boosted both equally. You're genuinely torn between these options!
+                      You helped both equally. You're genuinely torn between these options!
                     </p>
                   ) : (
                     <div className="text-center">
@@ -835,7 +1383,7 @@ function App() {
                         You favored <span className="text-yellow-300">"{analysis.favoredChoice}"</span>
                       </p>
                       <p className="text-purple-200 text-sm">
-                        ({analysis.favoredPercent}% of your boosts)
+                        ({analysis.favoredPercent}% of helpful items)
                       </p>
                       <p className="text-purple-300/80 text-sm mt-2">
                         {analysis.favoredPercent >= 75
@@ -856,12 +1404,35 @@ function App() {
               );
             })()}
 
-            <button
-              onClick={reset}
-              className="w-full py-3 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold rounded-xl transition-all"
-            >
-              New Battle
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  // Replay with same choices
+                  const currentChoices = [...choices];
+                  setMonsters([generateMonster(currentChoices[0], 0), generateMonster(currentChoices[1], 1)]);
+                  setBattleLog([]);
+                  setItemsUsed([[], []]);
+                  setActiveEffects([[], []]);
+                  setRound(0);
+                  setAttackingMonster(null);
+                  setHitMonster(null);
+                  setWinner(null);
+                  setBoostEffect([false, false]);
+                  setItems([]);
+                  setShowConfetti(false);
+                  setStage('intro');
+                }}
+                className="flex-1 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-red-200 font-bold rounded-xl transition-all border border-red-500/30"
+              >
+                🔄 Replay
+              </button>
+              <button
+                onClick={reset}
+                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold rounded-xl transition-all"
+              >
+                New Battle
+              </button>
+            </div>
           </div>
         )}
       </div>
