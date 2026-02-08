@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-tools-v76';
+const CACHE_NAME = 'my-tools-v77';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -14,7 +14,7 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   // Only handle requests to our site
-  if (!event.request.url.startsWith('https://rmmarco.github.io/my-tools/')) {
+  if (!event.request.url.startsWith('https://robotdognz.github.io/my-tools/')) {
     return;
   }
 
