@@ -11,6 +11,7 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <script src="../shared/share-card.js"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
     html, body, #root { height: 100%; margin: 0; overflow: hidden; }
@@ -550,6 +551,7 @@ function StrengthChart({ options, scores }) {
 }
 
 function ResultsView({ comparisonsMade, mode, scores, options, reset }) {
+  const { ShareCardFooter } = window;
   const [activeTab, setActiveTab] = useState('network');
   const [shareStatus, setShareStatus] = useState(null);
   const [showConfetti, setShowConfetti] = useState(true);
@@ -563,7 +565,7 @@ function ResultsView({ comparisonsMade, mode, scores, options, reset }) {
 
     try {
       const canvas = await html2canvas(shareCardRef.current, {
-        backgroundColor: '#ffffff',
+        backgroundColor: null,
         scale: 2,
         logging: false,
       });
@@ -620,56 +622,72 @@ function ResultsView({ comparisonsMade, mode, scores, options, reset }) {
   return (
     <div className="bg-white rounded-2xl shadow-xl p-8">
       <Confetti show={showConfetti} />
-      {/* Hidden share card */}
+      {/* Hidden share card - Instagram optimized 540x540 */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
         <div
           ref={shareCardRef}
           style={{
-            width: 400,
-            padding: 24,
-            background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
+            width: 540,
+            height: 540,
+            padding: 32,
+            background: 'linear-gradient(135deg, #1e293b 0%, #4c1d95 50%, #1e293b 100%)',
             fontFamily: 'Arial, Helvetica, sans-serif',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
-          <div style={{ textAlign: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 14, color: '#7c3aed', marginBottom: 4, letterSpacing: 0 }}>{'My Ranking Results'}</div>
-            <div style={{ fontSize: 12, color: '#64748b', letterSpacing: 0 }}>{comparisonsMade.length} {'comparisons made'}</div>
+          <div style={{ textAlign: 'center', marginBottom: 20 }}>
+            <div style={{ fontSize: 16, color: '#a78bfa', marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' }}>{'My Ranking Results'}</div>
+            <div style={{ fontSize: 13, color: '#94a3b8', letterSpacing: 0 }}>{comparisonsMade.length} {'comparisons made'}</div>
           </div>
 
-          <div style={{ background: 'white', borderRadius: 12, padding: 16 }}>
-            {rankedOptions.slice(0, 5).map((option, idx) => (
+          {/* Winner highlight */}
+          <div style={{
+            background: 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)',
+            borderRadius: 16,
+            padding: 20,
+            textAlign: 'center',
+            marginBottom: 16,
+            boxShadow: '0 4px 20px rgba(139, 92, 246, 0.3)',
+          }}>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginBottom: 8, letterSpacing: 0 }}>{'#1 Choice'}</div>
+            <div style={{ fontSize: 28, fontWeight: 'bold', color: 'white', letterSpacing: 0 }}>{rankedOptions[0]}</div>
+          </div>
+
+          {/* Full ranking */}
+          <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 16, flex: 1 }}>
+            {rankedOptions.slice(0, 6).map((option, idx) => (
               <div key={idx} style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 12,
                 padding: '8px 0',
-                borderBottom: idx < Math.min(rankedOptions.length, 5) - 1 ? '1px solid #f1f5f9' : 'none',
+                borderBottom: idx < Math.min(rankedOptions.length, 6) - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none',
               }}>
                 <div style={{
                   width: 28,
                   height: 28,
                   borderRadius: '50%',
-                  textAlign: 'center',
-                  paddingTop: 6,
-                  boxSizing: 'border-box',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   fontSize: 12,
                   fontWeight: 'bold',
-                  background: idx === 0 ? '#fbbf24' : idx === 1 ? '#d1d5db' : idx === 2 ? '#fdba74' : '#e5e7eb',
-                  color: idx === 0 ? '#78350f' : idx === 1 ? '#374151' : idx === 2 ? '#9a3412' : '#4b5563',
+                  background: idx === 0 ? '#fbbf24' : idx === 1 ? '#94a3b8' : idx === 2 ? '#f97316' : 'rgba(255,255,255,0.15)',
+                  color: idx === 0 ? '#78350f' : idx === 1 ? '#1e293b' : idx === 2 ? '#7c2d12' : '#e2e8f0',
                 }}>{idx + 1}</div>
-                <span style={{ fontSize: 14, color: '#1f2937', letterSpacing: 0 }}>{option}</span>
+                <span style={{ fontSize: 15, color: idx === 0 ? '#fbbf24' : '#e2e8f0', letterSpacing: 0, fontWeight: idx === 0 ? 'bold' : 'normal' }}>{option}</span>
               </div>
             ))}
-            {rankedOptions.length > 5 && (
-              <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', marginTop: 8 }}>
-                +{rankedOptions.length - 5} more
+            {rankedOptions.length > 6 && (
+              <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', marginTop: 8 }}>
+                +{rankedOptions.length - 6} more
               </div>
             )}
           </div>
 
-          <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 16 }}>
-            {'Made with Marco\'s Decision Tools'}
-          </div>
+          <ShareCardFooter style={{ marginTop: 16 }} />
         </div>
       </div>
 
@@ -780,6 +798,7 @@ function deleteFromHistory(id) {
 }
 
 function App() {
+  const { ShareCardFooter } = window;
   const [stage, setStage] = useState('input');
   const [inputText, setInputText] = useState('');
   const [mode, setMode] = useState('smart');

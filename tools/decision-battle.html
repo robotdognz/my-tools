@@ -11,6 +11,7 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <script src="../shared/share-card.js"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
     html, body, #root { height: 100%; margin: 0; overflow: hidden; }
@@ -513,6 +514,7 @@ function DraggableItem({ item, onDragStart, onDragEnd, isTouchDragging }) {
 }
 
 function App() {
+  const { ShareCardFooter } = window;
   const [stage, setStage] = useState('input'); // input, intro, battle, result
   const [choices, setChoices] = useState(['', '']);
   const [monsters, setMonsters] = useState([null, null]);
@@ -538,6 +540,7 @@ function App() {
   const [screenShake, setScreenShake] = useState(false);
   const [damageText, setDamageText] = useState(null); // { monsterIndex, amount, isCrit }
   const [critAttacker, setCritAttacker] = useState(null); // Which monster landed the crit
+  const [replayCount, setReplayCount] = useState(0); // Track how many times user replayed
   const shareCardRef = useRef(null);
   const monster0Ref = useRef(null);
   const monster1Ref = useRef(null);
@@ -1068,6 +1071,7 @@ function App() {
     setScreenShake(false);
     setCritAttacker(null);
     setDamageText(null);
+    setReplayCount(0);
   };
 
   return (
@@ -1358,137 +1362,138 @@ function App() {
 
         {stage === 'result' && winner !== null && (
           <div className="bg-slate-800/80 backdrop-blur rounded-2xl shadow-2xl p-6 border border-red-500/30">
-            {/* Hidden share card */}
+            {/* Hidden share card - Instagram optimized 1080x1080 (540x540 * scale 2) */}
             <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
               <div
                 ref={shareCardRef}
                 style={{
-                  width: 400,
-                  padding: 24,
-                  background: 'linear-gradient(135deg, #1e293b 0%, #450a0a 100%)',
+                  width: 540,
+                  height: 540,
+                  padding: 32,
+                  background: 'linear-gradient(135deg, #1e293b 0%, #450a0a 50%, #1e293b 100%)',
                   fontFamily: 'Arial, Helvetica, sans-serif',
+                  boxSizing: 'border-box',
+                  position: 'relative',
                 }}
               >
-                {/* Battle matchup header */}
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 12 }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 36 }}>{monsters[0].emoji}</div>
-                    <div style={{ fontSize: 10, color: winner === 0 ? '#fbbf24' : '#64748b', marginTop: 2, letterSpacing: 0 }}>
-                      {Math.max(0, Math.round(monsters[0].hp))} HP
-                    </div>
+                {/* Header */}
+                <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                  <div style={{ fontSize: 14, lineHeight: '18px', color: '#94a3b8', letterSpacing: 2 }}>{'DECISION BATTLE'}</div>
+                </div>
+
+                {/* Monsters face-off */}
+                <div style={{ textAlign: 'center', marginBottom: 8 }}>
+                  <span style={{ fontSize: 56, opacity: winner === 0 ? 1 : 0.5, verticalAlign: 'middle' }}>{monsters[0].emoji}</span>
+                  <span style={{ fontSize: 32, color: '#ef4444', verticalAlign: 'middle', margin: '0 12px' }}>{'⚔️'}</span>
+                  <span style={{ fontSize: 56, opacity: winner === 1 ? 1 : 0.5, verticalAlign: 'middle' }}>{monsters[1].emoji}</span>
+                </div>
+
+                {/* HP display */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 60, marginBottom: 20 }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 12,
+                    color: winner === 0 ? '#fbbf24' : '#64748b',
+                    background: 'rgba(0,0,0,0.3)',
+                    borderRadius: 12,
+                    padding: '4px 14px',
+                    height: 28,
+                  }}>
+                    {Math.max(0, Math.round(monsters[0].hp))}{' HP'}
                   </div>
-                  <div style={{ fontSize: 20, color: '#ef4444' }}>⚔️</div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 36 }}>{monsters[1].emoji}</div>
-                    <div style={{ fontSize: 10, color: winner === 1 ? '#fbbf24' : '#64748b', marginTop: 2, letterSpacing: 0 }}>
-                      {Math.max(0, Math.round(monsters[1].hp))} HP
-                    </div>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 12,
+                    color: winner === 1 ? '#fbbf24' : '#64748b',
+                    background: 'rgba(0,0,0,0.3)',
+                    borderRadius: 12,
+                    padding: '4px 14px',
+                    height: 28,
+                  }}>
+                    {Math.max(0, Math.round(monsters[1].hp))}{' HP'}
                   </div>
                 </div>
 
                 {/* Winner announcement */}
-                <div style={{ textAlign: 'center', marginBottom: 12 }}>
-                  <div style={{ fontSize: 18, fontWeight: 'bold', color: '#fbbf24', letterSpacing: 0 }}>🏆 Victory!</div>
-                  <div style={{ fontSize: 14, color: '#fecaca', marginTop: 4, letterSpacing: 0 }}>"{choices[winner]}" wins!</div>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2, letterSpacing: 0 }}>vs "{choices[1 - winner]}"</div>
+                <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                  <div style={{ fontSize: 28, lineHeight: '34px', fontWeight: 'bold', color: '#fbbf24', marginBottom: 6 }}>{'🏆 Victory!'}</div>
+                  <div style={{ fontSize: 22, lineHeight: '28px', color: '#ffffff', fontWeight: 'bold', marginBottom: 4 }}>{'"'}{choices[winner]}{'"'}</div>
+                  <div style={{ fontSize: 14, lineHeight: '20px', color: '#94a3b8' }}>{'defeats "'}{choices[1 - winner]}{'"'}</div>
                 </div>
 
-                {/* Battle stats */}
+                {/* Battle stats row */}
                 <div style={{
                   display: 'flex',
                   justifyContent: 'center',
-                  gap: 24,
-                  background: 'rgba(0,0,0,0.3)',
-                  borderRadius: 8,
-                  padding: '8px 16px',
-                  marginBottom: 12,
+                  marginBottom: 16,
                 }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 16, color: '#fbbf24', fontWeight: 'bold' }}>{round}</div>
-                    <div style={{ fontSize: 9, color: '#94a3b8', letterSpacing: 0 }}>rounds</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 16, color: '#fbbf24', fontWeight: 'bold' }}>{itemsUsed[0].length + itemsUsed[1].length}</div>
-                    <div style={{ fontSize: 9, color: '#94a3b8', letterSpacing: 0 }}>items used</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 16, color: '#fbbf24', fontWeight: 'bold' }}>{Math.max(0, Math.round(monsters[winner].hp))}</div>
-                    <div style={{ fontSize: 9, color: '#94a3b8', letterSpacing: 0 }}>HP left</div>
+                  <div style={{
+                    display: 'flex',
+                    background: 'rgba(0,0,0,0.4)',
+                    borderRadius: 12,
+                    padding: '8px 12px',
+                  }}>
+                    <div style={{ padding: '4px 16px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 22, lineHeight: '26px', color: '#fbbf24', fontWeight: 'bold' }}>{round}</div>
+                      <div style={{ fontSize: 11, lineHeight: '14px', color: '#94a3b8' }}>{'rounds'}</div>
+                    </div>
+                    <div style={{ padding: '4px 16px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 22, lineHeight: '26px', color: '#fbbf24', fontWeight: 'bold' }}>{itemsUsed[0].length + itemsUsed[1].length}</div>
+                      <div style={{ fontSize: 11, lineHeight: '14px', color: '#94a3b8' }}>{'items'}</div>
+                    </div>
+                    {replayCount > 0 && (
+                      <div style={{ padding: '4px 16px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 22, lineHeight: '26px', color: '#fbbf24', fontWeight: 'bold' }}>{replayCount}</div>
+                        <div style={{ fontSize: 11, lineHeight: '14px', color: '#94a3b8' }}>{replayCount === 1 ? 'replay' : 'replays'}</div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {(() => {
-                  const analysis = getAnalysis();
-
-                  // No items used - show different content
-                  if (!analysis) {
-                    const winMargin = Math.round(monsters[winner].hp);
-                    const battleDescription = winMargin > 50 ? 'Dominant victory!' :
-                      winMargin > 25 ? 'A solid win.' :
-                      winMargin > 10 ? 'A close battle!' : 'Photo finish!';
+                {/* Heart analysis or passive message */}
+                <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                  {(() => {
+                    const analysis = getAnalysis();
+                    if (!analysis) {
+                      const winMargin = Math.round(monsters[winner].hp);
+                      const battleDescription = winMargin > 50 ? 'Dominant victory! ' :
+                        winMargin > 25 ? 'A solid win. ' :
+                        winMargin > 10 ? 'A close battle! ' : 'Photo finish! ';
+                      return (
+                        <div style={{ color: '#94a3b8', fontSize: 14, lineHeight: '20px', fontStyle: 'italic' }}>
+                          {battleDescription}{'Let fate decide.'}
+                        </div>
+                      );
+                    }
 
                     return (
-                      <div style={{
-                        background: 'rgba(51, 65, 85, 0.5)',
-                        borderRadius: 12,
-                        padding: 12,
-                        textAlign: 'center',
-                      }}>
-                        <div style={{ fontSize: 12, color: '#94a3b8', letterSpacing: 0 }}>{battleDescription}</div>
-                        <div style={{ fontSize: 10, color: '#64748b', marginTop: 6, letterSpacing: 0, fontStyle: 'italic' }}>
-                          Watched without intervention — letting fate decide.
+                      <>
+                        <div style={{ fontSize: 12, lineHeight: '16px', color: '#c4b5fd', marginBottom: 6 }}>{'My heart revealed:'}</div>
+                        <div style={{ fontSize: 14, lineHeight: '20px', color: '#e9d5ff', fontWeight: 'bold' }}>
+                          {analysis.isTie
+                            ? 'Helped both equally'
+                            : 'Favored "' + analysis.favoredChoice + '" (' + analysis.favoredPercent + '%)'}
                         </div>
-                      </div>
+                      </>
                     );
-                  }
+                  })()}
+                </div>
 
-                  const getInterpretation = () => {
-                    if (analysis.isTie) return "Helped both equally — genuinely torn!";
-                    if (analysis.favoredPercent >= 75) return "Instincts strongly pulled this way!";
-                    if (analysis.favoredPercent >= 60) return "Showed a clear preference.";
-                    return "Fairly balanced between the two.";
-                  };
-
-                  const showFavoredNote = !analysis.isTie && analysis.favoredIndex !== winner;
-
-                  return (
-                    <div style={{
-                      background: 'rgba(88, 28, 135, 0.5)',
-                      borderRadius: 12,
-                      padding: 12,
-                    }}>
-                      <div style={{ fontSize: 11, color: '#c4b5fd', textAlign: 'center', marginBottom: 8, letterSpacing: 0 }}>What My Heart Revealed</div>
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: 24 }}>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 20 }}>{monsters[0].emoji}</div>
-                          <div style={{ fontSize: 14, color: '#e9d5ff', fontWeight: 'bold' }}>{analysis.helpfulCounts[0]}</div>
-                          <div style={{ fontSize: 9, color: '#a78bfa', letterSpacing: 0 }}>helpful</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 20 }}>{monsters[1].emoji}</div>
-                          <div style={{ fontSize: 14, color: '#e9d5ff', fontWeight: 'bold' }}>{analysis.helpfulCounts[1]}</div>
-                          <div style={{ fontSize: 9, color: '#a78bfa', letterSpacing: 0 }}>helpful</div>
-                        </div>
-                      </div>
-                      {!analysis.isTie && (
-                        <div style={{ fontSize: 11, color: '#fef08a', textAlign: 'center', marginTop: 8, letterSpacing: 0 }}>
-                          Favored: "{analysis.favoredChoice}" ({analysis.favoredPercent}%)
-                        </div>
-                      )}
-                      <div style={{ fontSize: 10, color: '#d8b4fe', textAlign: 'center', marginTop: 6, letterSpacing: 0, fontStyle: 'italic' }}>
-                        {getInterpretation()}
-                      </div>
-                      {showFavoredNote && (
-                        <div style={{ fontSize: 9, color: '#fcd34d', textAlign: 'center', marginTop: 6, letterSpacing: 0, fontStyle: 'italic' }}>
-                          Helped the loser more... protecting what we secretly want?
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                <div style={{ textAlign: 'center', fontSize: 10, color: '#64748b', marginTop: 12 }}>
-                  Marco's Decision Tools
+                {/* Footer - positioned at bottom */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: 24,
+                  left: 32,
+                  right: 32,
+                  textAlign: 'center',
+                  borderTop: '1px solid rgba(255,255,255,0.15)',
+                  paddingTop: 10,
+                }}>
+                  <ShareCardFooter />
                 </div>
               </div>
             </div>
@@ -1589,6 +1594,7 @@ function App() {
               <button
                 onClick={() => {
                   // Replay with same choices
+                  setReplayCount(prev => prev + 1);
                   const currentChoices = [...choices];
                   setMonsters([generateMonster(currentChoices[0], 0), generateMonster(currentChoices[1], 1)]);
                   setBattleLog([]);
