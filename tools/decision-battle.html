@@ -279,12 +279,11 @@ function loadHistory() {
   } catch { return []; }
 }
 
-function saveToHistory(choices, speed) {
+function saveToHistory(choices) {
   const history = loadHistory();
   const entry = {
     id: Date.now(),
     choices,
-    speed,
     date: new Date().toLocaleDateString(),
     preview: `${choices[0]} vs ${choices[1]}`
   };
@@ -526,7 +525,7 @@ function App() {
   const [winner, setWinner] = useState(null);
   const [boostEffect, setBoostEffect] = useState([false, false]);
   const [effectTexts, setEffectTexts] = useState([null, null]);
-  const [battleSpeed, setBattleSpeed] = useState(800);
+  const lastInteractionRef = useRef(Date.now());
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [shareStatus, setShareStatus] = useState(null);
@@ -567,6 +566,7 @@ function App() {
 
   // Discard all items
   const discardAllItems = () => {
+    recordInteraction();
     setItems([]);
   };
 
@@ -640,7 +640,7 @@ function App() {
     }
 
     const trimmedChoices = [choices[0].trim(), choices[1].trim()];
-    saveToHistory(trimmedChoices, battleSpeed);
+    saveToHistory(trimmedChoices);
     setHistory(loadHistory());
 
     const m1 = generateMonster(trimmedChoices[0], 0);
@@ -651,7 +651,6 @@ function App() {
 
   const loadFromHistory = (entry) => {
     setChoices(entry.choices);
-    if (entry.speed) setBattleSpeed(entry.speed);
     setShowHistory(false);
   };
 
@@ -661,7 +660,22 @@ function App() {
     setHistory(loadHistory());
   };
 
+  const recordInteraction = () => {
+    lastInteractionRef.current = Date.now();
+  };
+
+  const getDynamicSpeed = () => {
+    const SPEED_FAST = 350;
+    const SPEED_SLOW = 1400;
+    const DECAY_MS = 4000;
+    const elapsed = Date.now() - lastInteractionRef.current;
+    const t = Math.min(elapsed / DECAY_MS, 1);
+    const eased = t * t; // quadratic ease — slow at first, then speeds up
+    return SPEED_SLOW + (SPEED_FAST - SPEED_SLOW) * eased;
+  };
+
   const beginFight = () => {
+    lastInteractionRef.current = Date.now();
     setStage('battle');
     initializeItems();
     addLog('Battle begins! Drag items onto monsters!', 'announcement');
@@ -670,6 +684,7 @@ function App() {
 
   // Handle drag start (both mouse and touch)
   const handleDragStart = (item, e) => {
+    recordInteraction();
     setDraggedItem(item);
     draggedItemRef.current = item;
     if (e.type === 'touch') {
@@ -695,6 +710,7 @@ function App() {
 
     const handleTouchMove = (e) => {
       e.preventDefault(); // Prevent scrolling while dragging
+      recordInteraction();
       const touch = e.touches[0];
       setDragPosition({ x: touch.clientX, y: touch.clientY });
 
@@ -755,6 +771,7 @@ function App() {
 
   // Apply item effect to monster
   const applyItemToMonster = (item, monsterIndex) => {
+    recordInteraction();
     if (stage !== 'battle' || winner !== null) return;
 
     const effectId = `${item.id}-${Date.now()}`;
@@ -989,16 +1006,17 @@ function App() {
       }, 200);
     };
 
+    const speed = getDynamicSpeed();
     const timer = setTimeout(() => {
       executeAttack();
       // Only increment round if no monster is defeated
       if (winner === null && monsters[0]?.hp > 0 && monsters[1]?.hp > 0) {
         setRound(prev => prev + 1);
       }
-    }, battleSpeed);
+    }, speed);
 
     return () => clearTimeout(timer);
-  }, [round, stage, winner, battleSpeed, monsters]);
+  }, [round, stage, winner, monsters]);
 
   const getAnalysis = () => {
     const counts = [itemsUsed[0].length, itemsUsed[1].length];
@@ -1201,26 +1219,6 @@ function App() {
                 <span className="inline-flex items-center gap-1"><span className="text-lg">💤</span> Sleep</span>
               </div>
               <p className="text-xs text-amber-200/60 mt-2 text-center">Drag items onto monsters to help or hinder them!</p>
-            </div>
-
-            <div className="mb-4">
-              <label className="text-red-200/80 text-sm mb-2 block text-center">Battle Speed</label>
-              <div className="flex items-center gap-3">
-                <span className="text-red-300/60 text-xs">Slow</span>
-                <input
-                  type="range"
-                  min="200"
-                  max="1200"
-                  step="100"
-                  value={1400 - battleSpeed}
-                  onChange={(e) => setBattleSpeed(1400 - parseInt(e.target.value))}
-                  className="flex-1 accent-red-500"
-                />
-                <span className="text-red-300/60 text-xs">Fast</span>
-              </div>
-              <p className="text-center text-red-400/50 text-xs mt-1">
-                {battleSpeed >= 1000 ? 'Slow' : battleSpeed >= 700 ? 'Normal' : battleSpeed >= 400 ? 'Fast' : 'Chaos!'}
-              </p>
             </div>
 
             <button

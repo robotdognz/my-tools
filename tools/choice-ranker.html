@@ -115,9 +115,7 @@ function NetworkGraph({ options, comparisonsMade, scores, compact = false, showK
   const frameRef = useRef(null);
   const svgRef = useRef(null);
   
-  const activeOptions = compact 
-    ? [...new Set(comparisonsMade.flatMap(c => [c.winner, c.loser]))]
-    : options;
+  const activeOptions = options;
 
   const width = 320;
   const height = compact ? 200 : 320;
@@ -309,7 +307,7 @@ function NetworkGraph({ options, comparisonsMade, scores, compact = false, showK
   if (activeOptions.length === 0) {
     return (
       <div className={`flex items-center justify-center ${compact ? 'h-40' : 'h-64'} text-gray-400 text-sm`}>
-        Make your first choice to see the graph
+        No options to display
       </div>
     );
   }
@@ -1112,8 +1110,8 @@ function App() {
   const startComparing = () => {
     const items = inputText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
 
-    if (items.length < 2) {
-      alert('Please enter at least 2 options');
+    if (items.length < 3) {
+      alert('Please enter at least 3 options');
       return;
     }
 
@@ -1278,7 +1276,7 @@ function App() {
                 {Object.entries(MODES)
                   .filter(([key]) => ['smart'].includes(key))
                   .map(([key, { name, description, detail }]) => {
-                    const est = itemCount >= 2 ? estimateComparisons(itemCount, key) : 0;
+                    const est = itemCount >= 3 ? estimateComparisons(itemCount, key) : 0;
                     return (
                       <button
                         key={key}
@@ -1292,7 +1290,7 @@ function App() {
                             {name}
                           </span>
                           <span className="text-sm text-gray-400">
-                            {itemCount >= 2 ? `~${est} questions` : '—'}
+                            {itemCount >= 3 ? `~${est} questions` : '—'}
                           </span>
                         </div>
                         <p className="text-xs text-gray-400 mt-1">{detail}</p>
@@ -1316,7 +1314,7 @@ function App() {
                   {Object.entries(MODES)
                     .filter(([key]) => ['turbo', 'quick', 'balanced', 'complete'].includes(key))
                     .map(([key, { name, detail }]) => {
-                      const est = itemCount >= 2 ? estimateComparisons(itemCount, key) : 0;
+                      const est = itemCount >= 3 ? estimateComparisons(itemCount, key) : 0;
                       return (
                         <button
                           key={key}
@@ -1327,7 +1325,7 @@ function App() {
                         >
                           <div className="flex items-center justify-between">
                             <span className={`font-semibold ${mode === key ? 'text-violet-700' : 'text-gray-800'}`}>{name}</span>
-                            <span className="text-sm text-gray-400">{itemCount >= 2 ? `~${est}` : '—'}</span>
+                            <span className="text-sm text-gray-400">{itemCount >= 3 ? `~${est}` : '—'}</span>
                           </div>
                           <p className="text-xs text-gray-400 mt-1">{detail}</p>
                         </button>
@@ -1363,17 +1361,15 @@ function App() {
               </div>
             </div>
 
-            {comparisonsMade.length > 0 && (
-              <div className="mb-3 -mx-2">
-                <NetworkGraph 
-                  options={options} 
-                  comparisonsMade={comparisonsMade}
-                  scores={scores}
-                  compact={true}
-                  draggable={true}
-                />
-              </div>
-            )}
+            <div className="mb-3 -mx-2">
+              <NetworkGraph
+                options={options}
+                comparisonsMade={comparisonsMade}
+                scores={scores}
+                compact={true}
+                draggable={true}
+              />
+            </div>
 
             <h2 className="text-lg font-semibold text-gray-800 text-center mb-1">
               Which do you prefer?
