@@ -859,7 +859,8 @@ function App() {
   const [states, setStates] = useState([]);
   const [payoffs, setPayoffs] = useState([]);
   const [sliderValues, setSliderValues] = useState([]);
-  const [inputText, setInputText] = useState('');
+  const [actionInputs, setActionInputs] = useState(['', '']);
+  const [stateInputs, setStateInputs] = useState(['', '']);
   const [editingCell, setEditingCell] = useState(null);
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -894,6 +895,8 @@ function App() {
     setActions(entry.actions);
     setStates(entry.states);
     setPayoffs(entry.payoffs);
+    setActionInputs([...entry.actions]);
+    setStateInputs([...entry.states]);
     // Use saved probabilities if available, otherwise default to equal
     setSliderValues(entry.sliderValues || entry.states.map(() => 50));
     setShowHistory(false);
@@ -915,6 +918,8 @@ function App() {
 
     setActions(exampleActions);
     setStates(exampleStates);
+    setActionInputs([...exampleActions]);
+    setStateInputs([...exampleStates]);
     setPayoffs(examplePayoffs);
     setSliderValues(exampleSliders);
     setEditingCell(null); // All cells are filled
@@ -928,7 +933,7 @@ function App() {
   };
 
   const handleActionsSubmit = () => {
-    const newActions = inputText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    const newActions = actionInputs.map(s => s.trim()).filter(s => s.length > 0);
     if (newActions.length < 2) {
       alert('Please enter at least 2 options');
       return;
@@ -953,13 +958,13 @@ function App() {
 
     setActions(newActions);
     setPayoffs(newPayoffs);
-    // Preserve existing states in the input field if they exist
-    setInputText(states.length > 0 ? states.join('\n') : '');
+    // Preserve existing states in the input fields if they exist
+    if (states.length > 0) setStateInputs([...states]);
     setStage('states');
   };
 
   const handleStatesSubmit = () => {
-    const newStates = inputText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    const newStates = stateInputs.map(s => s.trim()).filter(s => s.length > 0);
     if (newStates.length < 2) {
       alert('Please enter at least 2 scenarios');
       return;
@@ -997,7 +1002,6 @@ function App() {
     // Select first empty cell if any
     const firstEmpty = findFirstEmptyCell(newPayoffs, actions.length, newStates.length);
     setEditingCell(firstEmpty);
-    setInputText('');
     setStage('matrix');
   };
 
@@ -1041,16 +1045,17 @@ function App() {
     setStates([]);
     setPayoffs([]);
     setSliderValues([]);
-    setInputText('');
+    setActionInputs(['', '']);
+    setStateInputs(['', '']);
     setEditingCell(null);
   };
 
   const goBack = () => {
     if (stage === 'states') {
-      setInputText(actions.join('\n'));
+      setActionInputs(actions.length > 0 ? [...actions] : ['', '']);
       setStage('actions');
     } else if (stage === 'matrix') {
-      setInputText(states.join('\n'));
+      setStateInputs(states.length > 0 ? [...states] : ['', '']);
       setEditingCell(null);
       setStage('states');
     } else if (stage === 'probabilities') {
@@ -1252,13 +1257,41 @@ function App() {
               <p className="mt-1">Enter the alternatives you're deciding between.</p>
             </div>
 
-            <textarea
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder={"Take the job offer\nStay at current job\nStart my own business"}
-              className="w-full h-32 p-4 border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
-              autoFocus
-            />
+            <div className="space-y-3">
+              {actionInputs.map((action, idx) => (
+                <div key={idx}>
+                  <label className="text-gray-500 text-sm mb-1 block">
+                    Option {idx + 1}
+                    {idx >= 2 && (
+                      <button
+                        onClick={() => setActionInputs(actionInputs.filter((_, i) => i !== idx))}
+                        className="ml-2 text-gray-400 hover:text-gray-600 text-xs"
+                      >
+                        remove
+                      </button>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    value={action}
+                    onChange={(e) => {
+                      const newInputs = [...actionInputs];
+                      newInputs[idx] = e.target.value;
+                      setActionInputs(newInputs);
+                    }}
+                    placeholder={idx === 0 ? "e.g., Take the new job" : idx === 1 ? "e.g., Stay at current job" : "e.g., Go freelance"}
+                    className="w-full p-3 border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  />
+                </div>
+              ))}
+
+              <button
+                onClick={() => setActionInputs([...actionInputs, ''])}
+                className="text-sm text-cyan-600 hover:text-cyan-700"
+              >
+                + Add another option
+              </button>
+            </div>
 
             {history.length > 0 && (
               <div className="mt-3">
@@ -1336,13 +1369,41 @@ function App() {
               ))}
             </div>
 
-            <textarea
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder={"Economy grows\nEconomy stays stable\nRecession hits"}
-              className="w-full h-28 p-4 border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
-              autoFocus
-            />
+            <div className="space-y-3">
+              {stateInputs.map((state, idx) => (
+                <div key={idx}>
+                  <label className="text-gray-500 text-sm mb-1 block">
+                    Scenario {idx + 1}
+                    {idx >= 2 && (
+                      <button
+                        onClick={() => setStateInputs(stateInputs.filter((_, i) => i !== idx))}
+                        className="ml-2 text-gray-400 hover:text-gray-600 text-xs"
+                      >
+                        remove
+                      </button>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    value={state}
+                    onChange={(e) => {
+                      const newInputs = [...stateInputs];
+                      newInputs[idx] = e.target.value;
+                      setStateInputs(newInputs);
+                    }}
+                    placeholder={idx === 0 ? "e.g., Economy grows" : idx === 1 ? "e.g., Economy stays stable" : "e.g., Recession hits"}
+                    className="w-full p-3 border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  />
+                </div>
+              ))}
+
+              <button
+                onClick={() => setStateInputs([...stateInputs, ''])}
+                className="text-sm text-cyan-600 hover:text-cyan-700"
+              >
+                + Add another scenario
+              </button>
+            </div>
 
             <button
               onClick={handleStatesSubmit}

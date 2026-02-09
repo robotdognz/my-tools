@@ -58,6 +58,14 @@
       z-index: 1000;
       pointer-events: none;
     }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
   </style>
 </head>
 <body>
@@ -584,7 +592,8 @@ function App() {
   const [stage, setStage] = useState('choices'); // choices, numbers, reading, history
   const [choices, setChoices] = useState(['', '']);
   const [choiceNumbers, setChoiceNumbers] = useState([[], []]);
-  const [numberInputs, setNumberInputs] = useState(['', '']);
+  const [numberFieldValues, setNumberFieldValues] = useState([['', ''], ['', '']]);
+  const [numFields, setNumFields] = useState(2);
   const [currentChoice, setCurrentChoice] = useState(0);
   const [results, setResults] = useState(null);
   const [isReading, setIsReading] = useState(false);
@@ -609,22 +618,24 @@ function App() {
     setCurrentChoice(0);
   };
 
-  const handleNumbersSubmit = () => {
-    const nums = numberInputs[currentChoice]
-      .split(/[\s,\n]+/)
-      .map(s => parseFloat(s.trim()))
-      .filter(n => !isNaN(n));
+  const addNumberField = () => {
+    setNumFields(prev => prev + 1);
+    setNumberFieldValues(prev => prev.map(fields => [...fields, '']));
+  };
 
-    const newChoiceNumbers = [...choiceNumbers];
-    newChoiceNumbers[currentChoice] = nums;
-    setChoiceNumbers(newChoiceNumbers);
+  const removeNumberField = () => {
+    if (numFields <= 2) return;
+    setNumFields(prev => prev - 1);
+    setNumberFieldValues(prev => prev.map(fields => fields.slice(0, -1)));
+  };
 
-    if (currentChoice < choices.filter(c => c.trim()).length - 1) {
-      setCurrentChoice(currentChoice + 1);
-    } else {
-      // All numbers entered, do the reading
-      performReading(newChoiceNumbers);
-    }
+  const updateFieldValue = (choiceIdx, fieldIdx, value) => {
+    setNumberFieldValues(prev => {
+      const newValues = prev.map(arr => [...arr]);
+      if (!newValues[choiceIdx]) newValues[choiceIdx] = Array(numFields).fill('');
+      newValues[choiceIdx][fieldIdx] = value;
+      return newValues;
+    });
   };
 
   const performReading = (allNumbers) => {
@@ -663,7 +674,7 @@ function App() {
       };
 
       setResults(reading);
-      saveToHistory(reading, choices, numberInputs);
+      saveToHistory(reading, choices, numberFieldValues);
       setHistory(loadHistory());
 
       setIsReading(false);
@@ -726,7 +737,8 @@ function App() {
     setStage('choices');
     setChoices(['', '']);
     setChoiceNumbers([[], []]);
-    setNumberInputs(['', '']);
+    setNumberFieldValues([['', ''], ['', '']]);
+    setNumFields(2);
     setCurrentChoice(0);
     setResults(null);
     setSingleMode(false);
@@ -734,9 +746,23 @@ function App() {
 
   const loadFromHistory = (reading, editMode = false) => {
     if (editMode && reading.originalChoices && reading.originalNumberInputs) {
-      // Load back into edit mode
       setChoices(reading.originalChoices);
-      setNumberInputs(reading.originalNumberInputs);
+      const inputs = reading.originalNumberInputs;
+      if (Array.isArray(inputs[0])) {
+        // New format: 2D array of field values
+        setNumberFieldValues(inputs);
+        setNumFields(inputs[0]?.length || 2);
+      } else {
+        // Old format: array of strings - convert to individual fields
+        const converted = inputs.map(str => {
+          const nums = (str || '').split(/[\s,\n]+/).map(s => s.trim()).filter(s => s && !isNaN(parseFloat(s)));
+          return nums.length >= 2 ? nums : [...nums, ...Array(2 - nums.length).fill('')];
+        });
+        const maxLen = Math.max(2, ...converted.map(a => a.length));
+        const padded = converted.map(a => [...a, ...Array(maxLen - a.length).fill('')]);
+        setNumberFieldValues(padded);
+        setNumFields(maxLen);
+      }
       setSingleMode(reading.isSingleMode || reading.scores.length === 1);
       setStage('numbers');
     } else {
@@ -763,6 +789,11 @@ function App() {
   };
 
   const validChoices = choices.filter(c => c.trim().length > 0);
+
+  const allFieldsFilled = validChoices.length > 0 && validChoices.every((_, idx) => {
+    return numberFieldValues[idx] && numberFieldValues[idx].length >= numFields &&
+      numberFieldValues[idx].every(v => v !== '' && !isNaN(parseFloat(v)));
+  });
 
   return (
     <div className="h-full bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-4 flex items-center justify-center overflow-auto stars">
@@ -806,9 +837,9 @@ function App() {
                       <button
                         onClick={() => {
                           const newChoices = choices.filter((_, i) => i !== idx);
-                          const newInputs = numberInputs.filter((_, i) => i !== idx);
+                          const newFieldValues = numberFieldValues.filter((_, i) => i !== idx);
                           setChoices(newChoices);
-                          setNumberInputs(newInputs);
+                          setNumberFieldValues(newFieldValues);
                         }}
                         className="ml-2 text-purple-400/50 hover:text-purple-300 text-xs"
                       >
@@ -834,7 +865,7 @@ function App() {
                 <button
                   onClick={() => {
                     setChoices([...choices, '']);
-                    setNumberInputs([...numberInputs, '']);
+                    setNumberFieldValues([...numberFieldValues, Array(numFields).fill('')]);
                   }}
                   className="text-sm text-purple-400 hover:text-purple-300"
                 >
@@ -944,32 +975,62 @@ function App() {
 
             <div className="bg-purple-900/30 rounded-xl p-3 mb-4 text-xs text-purple-300/70">
               <p className="font-medium text-purple-200 mb-1">What numbers to enter:</p>
-              <p>Dates, addresses, lucky numbers, prices, quantities — anything meaningful</p>
+              <p>Numbers that relate to the choice — e.g. for "Take the new job": the salary, office number, commute distance, start date...</p>
+              <p className="mt-1">Can't think of any? Just pick numbers that come into your head, or hit 🎲 to randomise.</p>
             </div>
 
             <div className="space-y-4">
               {validChoices.map((choice, idx) => (
                 <div key={idx} className="bg-slate-800/30 rounded-xl p-4 border border-purple-500/20">
-                  <label className="text-purple-200 text-sm font-medium mb-2 block">
-                    {choice}
-                  </label>
-                  <textarea
-                    value={numberInputs[idx] || ''}
-                    onChange={(e) => {
-                      const newInputs = [...numberInputs];
-                      newInputs[idx] = e.target.value;
-                      setNumberInputs(newInputs);
-                    }}
-                    placeholder="Enter numbers (e.g., 1985, 7, 23)"
-                    className="w-full h-20 p-3 bg-slate-800/50 border border-purple-500/30 rounded-lg text-purple-100 placeholder-purple-400/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none text-sm"
-                  />
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-purple-200 text-sm font-medium">
+                      {choice}
+                    </label>
+                    <button
+                      onClick={() => {
+                        setNumberFieldValues(prev => {
+                          const newValues = prev.map(arr => [...arr]);
+                          const nums = new Set();
+                          while (nums.size < numFields) nums.add(Math.floor(Math.random() * 1000) + 1);
+                          newValues[idx] = [...nums].map(String);
+                          return newValues;
+                        });
+                      }}
+                      className="text-xs px-2 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg transition-colors"
+                    >
+                      🎲 Random
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {Array.from({ length: numFields }, (_, fieldIdx) => (
+                      <input
+                        key={fieldIdx}
+                        type="number"
+                        step="any"
+                        value={numberFieldValues[idx]?.[fieldIdx] ?? ''}
+                        onChange={(e) => updateFieldValue(idx, fieldIdx, e.target.value)}
+                        placeholder={`#${fieldIdx + 1}`}
+                        className="w-24 p-2 bg-slate-800/50 border border-purple-500/30 rounded-lg text-purple-100 placeholder-purple-400/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-sm text-center"
+                      />
+                    ))}
+                    {numFields > 2 && (
+                      <button
+                        onClick={removeNumberField}
+                        className="w-10 h-10 flex items-center justify-center bg-slate-700/40 hover:bg-red-600/30 text-purple-400/60 hover:text-red-300 rounded-lg transition-colors text-lg font-bold"
+                      >
+                        −
+                      </button>
+                    )}
+                    <button
+                      onClick={addNumberField}
+                      className="w-10 h-10 flex items-center justify-center bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 rounded-lg transition-colors text-lg font-bold"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
-
-            <p className="text-purple-400/50 text-xs mt-3 text-center">
-              Separate numbers with spaces, commas, or new lines
-            </p>
 
             <div className="flex gap-3 mt-4">
               <button
@@ -980,15 +1041,18 @@ function App() {
               </button>
               <button
                 onClick={() => {
-                  // Parse all number inputs at once
                   const allNumbers = validChoices.map((_, idx) => {
-                    const input = numberInputs[idx] || '';
-                    return input.split(/[\s,\n]+/).map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+                    return (numberFieldValues[idx] || []).map(v => parseFloat(v)).filter(n => !isNaN(n));
                   });
                   setChoiceNumbers(allNumbers);
                   performReading(allNumbers);
                 }}
-                className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-xl transition-all"
+                disabled={!allFieldsFilled}
+                className={`flex-1 py-3 font-semibold rounded-xl transition-all ${
+                  allFieldsFilled
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-500/25'
+                    : 'bg-slate-700/50 text-purple-400/50 cursor-not-allowed'
+                }`}
               >
                 Reveal My Reading ✨
               </button>
