@@ -11,6 +11,7 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <script src="../shared/share-card.js"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
     html, body, #root { height: 100%; margin: 0; overflow: hidden; }
@@ -397,56 +398,94 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
       {phase === 'done' && (
         <div className="text-center">
           <Confetti show={showConfetti} />
-          {/* Hidden share card */}
+          {/* Hidden share card - Instagram optimized 540x540 */}
           <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
             <div
               ref={shareCardRef}
               style={{
-                width: 400,
-                padding: 24,
-                background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                width: 540,
+                height: 540,
+                padding: 32,
+                background: 'linear-gradient(135deg, #0f172a 0%, #14532d 50%, #0f172a 100%)',
                 fontFamily: 'Arial, Helvetica, sans-serif',
+                boxSizing: 'border-box',
+                position: 'relative',
               }}
             >
+              {/* Header */}
               <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>🎉</div>
-                <div style={{ fontSize: 14, color: '#dc2626', marginBottom: 4, letterSpacing: 0 }}>
-                  {survivors.length === 1 ? 'The Winner Is' : 'The Survivors Are'}
-                </div>
+                <div style={{ fontSize: 14, lineHeight: '18px', color: '#94a3b8', letterSpacing: 2 }}>{'CHOICE NARROWER'}</div>
               </div>
 
+              {/* Icon */}
+              <div style={{ textAlign: 'center', fontSize: 56, marginBottom: 16 }}>{'🎉'}</div>
+
+              {/* Main result */}
               <div style={{
                 background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-                borderRadius: 12,
-                padding: 20,
+                borderRadius: 16,
+                padding: '20px 24px',
                 textAlign: 'center',
+                marginBottom: 20,
+                boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
               }}>
+                <div style={{ fontSize: 14, lineHeight: '18px', color: 'rgba(255,255,255,0.8)', marginBottom: 8 }}>
+                  {survivors.length === 1 ? 'The Winner Is' : 'The Survivors Are'}
+                </div>
                 {survivors.map((s, i) => (
                   <div key={i} style={{
-                    fontSize: 20,
+                    fontSize: 24,
+                    lineHeight: '30px',
                     fontWeight: 'bold',
                     color: 'white',
-                    letterSpacing: 0,
                     padding: i > 0 ? '8px 0 0 0' : 0,
                   }}>{s}</div>
                 ))}
               </div>
 
-              <div style={{
-                background: 'white',
-                borderRadius: 12,
-                padding: 12,
-                marginTop: 16,
-                fontSize: 11,
-                color: '#6b7280',
-                textAlign: 'center',
-                letterSpacing: 0,
-              }}>
-                {'Eliminated: '}{choices.filter(c => !survivors.includes(c)).join(', ')}
+              {/* Stats row */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+                <div style={{
+                  display: 'flex',
+                  background: 'rgba(0,0,0,0.4)',
+                  borderRadius: 12,
+                  padding: '8px 12px',
+                }}>
+                  <div style={{ padding: '4px 16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 22, lineHeight: '26px', color: '#4ade80', fontWeight: 'bold' }}>{survivors.length}</div>
+                    <div style={{ fontSize: 11, lineHeight: '14px', color: '#94a3b8' }}>{survivors.length === 1 ? 'survivor' : 'survivors'}</div>
+                  </div>
+                  <div style={{ padding: '4px 16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 22, lineHeight: '26px', color: '#4ade80', fontWeight: 'bold' }}>{choices.length - survivors.length}</div>
+                    <div style={{ fontSize: 11, lineHeight: '14px', color: '#94a3b8' }}>{'eliminated'}</div>
+                  </div>
+                </div>
               </div>
 
-              <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 16 }}>
-                {'Made with Marco\'s Decision Tools'}
+              {/* Eliminated list */}
+              <div style={{
+                background: 'rgba(0,0,0,0.3)',
+                borderRadius: 12,
+                padding: '12px 16px',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 11, lineHeight: '14px', color: '#64748b', marginBottom: 4 }}>{'Eliminated:'}</div>
+                <div style={{ fontSize: 12, lineHeight: '18px', color: '#94a3b8' }}>
+                  {choices.filter(c => !survivors.includes(c)).join(', ')}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div style={{
+                position: 'absolute',
+                bottom: 24,
+                left: 32,
+                right: 32,
+                textAlign: 'center',
+                borderTop: '1px solid rgba(255,255,255,0.15)',
+                paddingTop: 10,
+              }}>
+                <ShareCardFooter />
               </div>
             </div>
           </div>
@@ -498,6 +537,7 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
 }
 
 function App() {
+  const { ShareCardFooter } = window;
   const [stage, setStage] = useState('input'); // input, select, eliminating, result
   const [inputText, setInputText] = useState('');
   const [choices, setChoices] = useState([]);

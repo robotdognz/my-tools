@@ -11,6 +11,7 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <script src="../shared/share-card.js"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
     html, body, #root { height: 100%; margin: 0; overflow: hidden; }
@@ -374,6 +375,7 @@ function ProbabilitySliders({ states, sliderValues, onSliderChange, onResetSlide
 
 // Results view with accordions
 function ResultsView({ actions, states, payoffs, probabilities, reset, goBack }) {
+  const { ShareCardFooter } = window;
   const [hurwiczAlpha, setHurwiczAlpha] = useState(0.5);
   const [showConfetti, setShowConfetti] = useState(true);
   const [shareStatus, setShareStatus] = useState(null); // null, 'generating', 'shared', 'downloaded', 'copied'
@@ -460,7 +462,7 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
     try {
       // Capture the share card as an image
       const canvas = await html2canvas(shareCardRef.current, {
-        backgroundColor: '#ffffff',
+        backgroundColor: null,
         scale: 2, // Higher quality
         logging: false,
       });
@@ -541,55 +543,76 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
     <div className="bg-white rounded-2xl shadow-xl p-6 overflow-auto max-h-[90vh]">
       <Confetti show={showConfetti} />
 
-      {/* Hidden share card for image generation */}
+      {/* Hidden share card - Instagram optimized 540x540 */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
         <div
           ref={shareCardRef}
           style={{
-            width: 400,
-            padding: 24,
-            background: 'linear-gradient(135deg, #ecfeff 0%, #cffafe 100%)',
+            width: 540,
+            height: 540,
+            padding: 28,
+            background: 'linear-gradient(135deg, #1e293b 0%, #164e63 50%, #1e293b 100%)',
             fontFamily: 'Arial, Helvetica, sans-serif',
             letterSpacing: 'normal',
             wordSpacing: 'normal',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
           }}
         >
-          <div style={{ textAlign: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 14, color: '#0e7490', marginBottom: 4, letterSpacing: 0 }}>{'My Decision Analysis'}</div>
-            <div style={{ fontSize: 12, color: '#64748b', letterSpacing: 0 }}>
+          <div style={{ textAlign: 'center', marginBottom: 14 }}>
+            <div style={{ fontSize: 14, color: '#22d3ee', marginBottom: 4, letterSpacing: 1, textTransform: 'uppercase' }}>{'My Decision Analysis'}</div>
+            <div style={{ fontSize: 12, color: '#94a3b8', letterSpacing: 0 }}>
               {hurwiczAlpha < 0.3 ? 'Cautious approach' : hurwiczAlpha > 0.7 ? 'Optimistic approach' : 'Balanced approach'}
             </div>
           </div>
 
+          {/* Winner highlight */}
           <div style={{
-            background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
-            borderRadius: 12,
-            padding: 20,
+            background: 'linear-gradient(135deg, #0891b2 0%, #06b6d4 100%)',
+            borderRadius: 14,
+            padding: 18,
             color: 'white',
             textAlign: 'center',
-            marginBottom: 16,
+            marginBottom: 14,
+            boxShadow: '0 4px 20px rgba(6, 182, 212, 0.3)',
           }}>
-            <div style={{ fontSize: 12, opacity: 0.9, marginBottom: 8, letterSpacing: 0 }}>{'Recommended Choice'}</div>
+            <div style={{ fontSize: 11, opacity: 0.9, marginBottom: 6, letterSpacing: 0 }}>{'Recommended Choice'}</div>
             <div style={{ fontSize: 24, fontWeight: 'bold', letterSpacing: 0 }}>{formatBestActions(calculations.hurwicz)}</div>
           </div>
 
+          {/* Stats row */}
+          <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+            <div style={{ flex: 1, background: 'rgba(255,255,255,0.08)', borderRadius: 10, padding: 12, textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 'bold', color: '#22d3ee' }}>{actions.length}</div>
+              <div style={{ fontSize: 10, color: '#94a3b8' }}>{'Options'}</div>
+            </div>
+            <div style={{ flex: 1, background: 'rgba(255,255,255,0.08)', borderRadius: 10, padding: 12, textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 'bold', color: '#22d3ee' }}>{states.length}</div>
+              <div style={{ fontSize: 10, color: '#94a3b8' }}>{'Scenarios'}</div>
+            </div>
+          </div>
+
+          {/* All options scored */}
           <div style={{
-            background: 'white',
-            borderRadius: 12,
-            padding: 16,
-            marginBottom: 16,
+            background: 'rgba(255,255,255,0.08)',
+            borderRadius: 10,
+            padding: 12,
+            flex: 1,
+            overflow: 'hidden',
           }}>
-            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8, letterSpacing: 0 }}>{'All options scored:'}</div>
-            {actions.map((action, idx) => {
+            <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8, letterSpacing: 0 }}>{'All options scored:'}</div>
+            {actions.slice(0, 4).map((action, idx) => {
               const result = calculations.hurwicz[idx];
               return (
                 <div key={idx} style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   padding: '6px 0',
-                  borderBottom: idx < actions.length - 1 ? '1px solid #f1f5f9' : 'none',
+                  borderBottom: idx < Math.min(actions.length, 4) - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none',
                   fontWeight: result.isBest ? 'bold' : 'normal',
-                  color: result.isBest ? '#0891b2' : '#475569',
+                  color: result.isBest ? '#22d3ee' : '#e2e8f0',
                   fontSize: 14,
                   letterSpacing: 0,
                 }}>
@@ -598,11 +621,14 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
                 </div>
               );
             })}
+            {actions.length > 4 && (
+              <div style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center', marginTop: 6 }}>
+                +{actions.length - 4} more
+              </div>
+            )}
           </div>
 
-          <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', letterSpacing: 0 }}>
-            {'Made with Marco\'s Decision Tools'}
-          </div>
+          <ShareCardFooter style={{ marginTop: 'auto', paddingTop: 12 }} />
         </div>
       </div>
 
@@ -854,6 +880,7 @@ function ResultsView({ actions, states, payoffs, probabilities, reset, goBack })
 }
 
 function App() {
+  const { ShareCardFooter } = window;
   const [stage, setStage] = useState('actions'); // actions, states, matrix, probabilities, result
   const [actions, setActions] = useState([]);
   const [states, setStates] = useState([]);

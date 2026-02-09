@@ -11,6 +11,7 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <script src="../shared/share-card.js"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; }
     html, body, #root { height: 100%; margin: 0; overflow: hidden; }
@@ -420,6 +421,7 @@ function deleteFromHistory(id) {
 }
 
 function App() {
+  const { ShareCardFooter } = window;
   const [stage, setStage] = useState('setup'); // setup, voting, results
   const [choices, setChoices] = useState([]);
   const [voters, setVoters] = useState([]);
@@ -784,51 +786,104 @@ function App() {
         {stage === 'results' && (
           <div className="bg-white rounded-2xl shadow-xl p-6 overflow-auto max-h-[90vh]">
             <Confetti show={showConfetti} />
-            {/* Hidden share card */}
+            {/* Hidden share card - Instagram optimized 540x540 */}
             <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
               <div
                 ref={shareCardRef}
                 style={{
-                  width: 400,
-                  padding: 24,
-                  background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
+                  width: 540,
+                  height: 540,
+                  padding: 32,
+                  background: 'linear-gradient(135deg, #1e293b 0%, #7c2d12 50%, #1e293b 100%)',
                   fontFamily: 'Arial, Helvetica, sans-serif',
+                  boxSizing: 'border-box',
+                  position: 'relative',
                 }}
               >
+                {/* Header */}
                 <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                  <div style={{ fontSize: 14, color: '#ea580c', marginBottom: 4, letterSpacing: 0 }}>{'Team Vote Results'}</div>
-                  <div style={{ fontSize: 12, color: '#64748b', letterSpacing: 0 }}>{votes.length} {'voters'}</div>
+                  <div style={{ fontSize: 14, lineHeight: '18px', color: '#94a3b8', letterSpacing: 2 }}>{'TEAM LIST VOTE'}</div>
                 </div>
 
-                <div style={{ background: 'white', borderRadius: 12, padding: 16 }}>
+                {/* Stats */}
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+                  <div style={{
+                    display: 'flex',
+                    background: 'rgba(0,0,0,0.4)',
+                    borderRadius: 12,
+                    padding: '8px 12px',
+                  }}>
+                    <div style={{ padding: '4px 16px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 22, lineHeight: '26px', color: '#fbbf24', fontWeight: 'bold' }}>{votes.length}</div>
+                      <div style={{ fontSize: 11, lineHeight: '14px', color: '#94a3b8' }}>{votes.length === 1 ? 'voter' : 'voters'}</div>
+                    </div>
+                    <div style={{ padding: '4px 16px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 22, lineHeight: '26px', color: '#fbbf24', fontWeight: 'bold' }}>{choices.length}</div>
+                      <div style={{ fontSize: 11, lineHeight: '14px', color: '#94a3b8' }}>{'choices'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Winner highlight */}
+                {getVoteResults()[0] && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
+                    borderRadius: 16,
+                    padding: '16px 24px',
+                    textAlign: 'center',
+                    marginBottom: 16,
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                  }}>
+                    <div style={{ fontSize: 12, lineHeight: '16px', color: 'rgba(255,255,255,0.8)', marginBottom: 6 }}>{'Group Consensus'}</div>
+                    <div style={{ fontSize: 24, lineHeight: '30px', fontWeight: 'bold', color: 'white' }}>{getVoteResults()[0].choice}</div>
+                    <div style={{ fontSize: 12, lineHeight: '16px', color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>{getVoteResults()[0].score}{' points'}</div>
+                  </div>
+                )}
+
+                {/* Full ranking */}
+                <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 12, padding: 16 }}>
                   {getVoteResults().slice(0, 5).map((result, idx) => (
                     <div key={idx} style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: 12,
                       padding: '8px 0',
-                      borderBottom: idx < Math.min(getVoteResults().length, 5) - 1 ? '1px solid #f1f5f9' : 'none',
+                      borderBottom: idx < Math.min(getVoteResults().length, 5) - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none',
                     }}>
                       <div style={{
                         width: 28,
                         height: 28,
                         borderRadius: 14,
-                        textAlign: 'center',
-                        lineHeight: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         fontSize: 12,
                         fontWeight: 'bold',
-                        overflow: 'hidden',
-                        background: idx === 0 ? '#fbbf24' : idx === 1 ? '#d1d5db' : idx === 2 ? '#fdba74' : '#e5e7eb',
-                        color: idx === 0 ? '#78350f' : idx === 1 ? '#374151' : idx === 2 ? '#9a3412' : '#4b5563',
+                        background: idx === 0 ? '#fbbf24' : idx === 1 ? '#d1d5db' : idx === 2 ? '#fdba74' : '#4b5563',
+                        color: idx === 0 ? '#78350f' : idx === 1 ? '#374151' : idx === 2 ? '#9a3412' : '#e2e8f0',
                       }}>{idx + 1}</div>
-                      <span style={{ flex: 1, fontSize: 14, color: '#1f2937', letterSpacing: 0 }}>{result.choice}</span>
-                      <span style={{ fontSize: 12, color: '#9ca3af', letterSpacing: 0 }}>{result.score} pts</span>
+                      <span style={{ flex: 1, fontSize: 14, lineHeight: '20px', color: '#e2e8f0' }}>{result.choice}</span>
+                      <span style={{ fontSize: 12, lineHeight: '16px', color: '#94a3b8' }}>{result.score}{' pts'}</span>
                     </div>
                   ))}
+                  {getVoteResults().length > 5 && (
+                    <div style={{ fontSize: 11, lineHeight: '14px', color: '#64748b', textAlign: 'center', marginTop: 8 }}>
+                      +{getVoteResults().length - 5}{' more'}
+                    </div>
+                  )}
                 </div>
 
-                <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 16 }}>
-                  {'Made with Marco\'s Decision Tools'}
+                {/* Footer */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: 24,
+                  left: 32,
+                  right: 32,
+                  textAlign: 'center',
+                  borderTop: '1px solid rgba(255,255,255,0.15)',
+                  paddingTop: 10,
+                }}>
+                  <ShareCardFooter />
                 </div>
               </div>
             </div>
