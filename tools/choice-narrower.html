@@ -149,7 +149,7 @@ function deleteFromHistory(id) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
 }
 
-function EliminationArena({ choices, keepCount, onComplete, onReset }) {
+function EliminationArena({ choices, keepCount, onComplete, onReset, onRetry }) {
   const [items, setItems] = useState([]);
   const [phase, setPhase] = useState('ready'); // ready, shaking, eliminating, done
   const [eliminatingIdx, setEliminatingIdx] = useState(null);
@@ -311,6 +311,31 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
 
   return (
     <div className="flex flex-col items-center">
+      {/* Header with share button - only when done */}
+      {phase === 'done' && (
+        <div className="w-full flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-800">
+            {survivors.length === 1 ? 'Winner!' : `${survivors.length} Survivors`}
+          </h2>
+          <button
+            onClick={shareResults}
+            disabled={shareStatus === 'generating'}
+            className={`text-sm px-3 py-1 rounded-lg transition-colors flex items-center gap-1 ${
+              shareStatus && shareStatus !== 'generating'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+            }`}
+          >
+            {!shareStatus && (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+            )}
+            {getShareButtonText()}
+          </button>
+        </div>
+      )}
+
       {/* Arena */}
       <div className="relative w-80 h-80 mb-6">
         {/* Center indicator */}
@@ -490,9 +515,6 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
             </div>
           </div>
 
-          <p className="text-gray-500 mb-4">
-            {survivors.length === 1 ? 'The winner is:' : `The ${survivors.length} survivors are:`}
-          </p>
           <div className="flex flex-wrap justify-center gap-2 mb-6">
             {survivors.map((s, i) => (
               <span key={i} className="px-4 py-2 bg-green-100 text-green-800 font-bold rounded-xl text-lg">
@@ -502,24 +524,17 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
           </div>
           <div className="flex justify-center gap-3">
             <button
-              onClick={shareResults}
-              disabled={shareStatus === 'generating'}
-              className={`px-4 py-3 rounded-xl font-medium transition-colors flex items-center gap-2 ${
-                shareStatus && shareStatus !== 'generating'
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-              }`}
+              onClick={onRetry}
+              className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl transition-colors flex items-center gap-2"
             >
-              {!shareStatus && (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
-              )}
-              {getShareButtonText()}
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Try Again
             </button>
             <button
               onClick={onReset}
-              className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-colors"
+              className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl transition-colors"
             >
               Start Over
             </button>
@@ -538,8 +553,8 @@ function EliminationArena({ choices, keepCount, onComplete, onReset }) {
 
 function App() {
   const { ShareCardFooter } = window;
-  const [stage, setStage] = useState('input'); // input, select, eliminating, result
-  const [inputText, setInputText] = useState('');
+  const [stage, setStage] = useState('input'); // input, eliminating
+  const [optionInputs, setOptionInputs] = useState(['', '']);
   const [choices, setChoices] = useState([]);
   const [keepCount, setKeepCount] = useState(1);
   const [winners, setWinners] = useState([]);
@@ -551,7 +566,8 @@ function App() {
   }, []);
 
   const loadFromHistory = (entry) => {
-    setInputText(entry.items.join('\n'));
+    const items = entry.items.length >= 2 ? entry.items : [...entry.items, ...Array(2 - entry.items.length).fill('')];
+    setOptionInputs(items);
     setShowHistory(false);
   };
 
@@ -561,8 +577,11 @@ function App() {
     setHistory(loadHistory());
   };
 
-  const handleSubmitChoices = () => {
-    const items = inputText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+  const itemCount = optionInputs.filter(s => s.trim().length > 0).length;
+  const maxWinners = Math.max(1, itemCount - 1);
+
+  const handleStartElimination = () => {
+    const items = optionInputs.map(s => s.trim()).filter(s => s.length > 0);
 
     if (items.length < 2) {
       alert('Please enter at least 2 choices');
@@ -572,30 +591,31 @@ function App() {
     saveToHistory(items);
     setHistory(loadHistory());
     setChoices(items);
-    setStage('select');
-  };
-
-  const handleStartElimination = (count) => {
-    setKeepCount(count);
     setStage('eliminating');
   };
+
+  const [retryKey, setRetryKey] = useState(0);
 
   const handleComplete = (survivors) => {
     setWinners(survivors);
   };
 
+  const retry = () => {
+    setRetryKey(k => k + 1);
+    setWinners([]);
+  };
+
   const reset = () => {
     setStage('input');
+    setOptionInputs(['', '']);
     setChoices([]);
     setKeepCount(1);
     setWinners([]);
   };
 
-  const maxKeep = Math.min(3, choices.length - 1);
-
   return (
     <div className="h-full bg-gradient-to-br from-red-50 to-orange-100 p-4 flex items-center justify-center overflow-auto">
-      <a href="/my-tools/" className="absolute top-4 left-4 p-2 bg-white/80 hover:bg-white rounded-full shadow-sm transition-colors">
+      <a href="../index.html" className="absolute top-4 left-4 p-2 bg-white/80 hover:bg-white rounded-full shadow-sm transition-colors">
         <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
@@ -609,96 +629,118 @@ function App() {
               Can't decide? Let fate eliminate options for you.
             </p>
 
-            <textarea
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder={"Pizza\nSushi\nTacos\nBurgers\nPasta\nCurry\nSalad"}
-              className="w-full h-40 p-4 border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
-            />
+            <div className="space-y-2 mb-4">
+              {optionInputs.map((value, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={value}
+                    onChange={(e) => {
+                      const newInputs = [...optionInputs];
+                      newInputs[idx] = e.target.value;
+                      setOptionInputs(newInputs);
+                    }}
+                    placeholder={`Option ${idx + 1}`}
+                    className="flex-1 p-3 border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400"
+                  />
+                  {optionInputs.length > 2 && (
+                    <button
+                      onClick={() => {
+                        setOptionInputs(optionInputs.filter((_, i) => i !== idx));
+                        // Adjust keepCount if needed
+                        const newCount = optionInputs.filter((_, i) => i !== idx).filter(s => s.trim()).length;
+                        if (keepCount >= newCount) setKeepCount(Math.max(1, newCount - 1));
+                      }}
+                      className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                onClick={() => setOptionInputs([...optionInputs, ''])}
+                className="w-full py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors flex items-center justify-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Add option
+              </button>
 
-            {history.length > 0 && (
-              <div className="mt-3">
-                <button
-                  onClick={() => setShowHistory(!showHistory)}
-                  className="text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
-                >
-                  {showHistory ? 'Hide' : 'Load'} previous lists ({history.length})
-                  <svg className={`w-4 h-4 transition-transform ${showHistory ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {showHistory && (
-                  <div className="mt-2 space-y-2 max-h-40 overflow-y-auto">
-                    {history.map(entry => (
-                      <div
-                        key={entry.id}
-                        onClick={() => loadFromHistory(entry)}
-                        className="flex items-center justify-between p-2 bg-gray-50 hover:bg-red-50 rounded-lg cursor-pointer group"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-700 truncate">{entry.preview}</p>
-                          <p className="text-xs text-gray-400">{entry.items.length} items · {entry.date}</p>
-                        </div>
-                        <button
-                          onClick={(e) => handleDeleteHistory(entry.id, e)}
-                          className="ml-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              {history.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-gray-100">
+                  <button
+                    onClick={() => setShowHistory(!showHistory)}
+                    className="text-sm text-gray-500 hover:text-red-600 flex items-center gap-1"
+                  >
+                    {showHistory ? 'Hide' : 'Load'} previous ({history.length})
+                    <svg className={`w-4 h-4 transition-transform ${showHistory ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {showHistory && (
+                    <div className="mt-2 space-y-2 max-h-40 overflow-y-auto">
+                      {history.map(entry => (
+                        <div
+                          key={entry.id}
+                          onClick={() => loadFromHistory(entry)}
+                          className="flex items-center justify-between p-2 bg-gray-50 hover:bg-red-50 rounded-lg cursor-pointer group"
                         >
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-700 truncate">{entry.preview}</p>
+                            <p className="text-xs text-gray-400">{entry.items.length} items · {entry.date}</p>
+                          </div>
+                          <button
+                            onClick={(e) => handleDeleteHistory(entry.id, e)}
+                            className="ml-2 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Winner count slider */}
+            {itemCount >= 2 && (
+              <div className="mb-4 p-4 bg-red-50 rounded-xl">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Number of winners</span>
+                  <span className="text-lg font-bold text-red-600">{keepCount}</span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max={maxWinners}
+                  value={Math.min(keepCount, maxWinners)}
+                  onChange={(e) => setKeepCount(parseInt(e.target.value))}
+                  className="w-full h-2 bg-red-200 rounded-lg appearance-none cursor-pointer accent-red-600"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>1</span>
+                  <span>{maxWinners}</span>
+                </div>
               </div>
             )}
 
             <button
-              onClick={handleSubmitChoices}
-              className="w-full mt-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-colors"
+              onClick={handleStartElimination}
+              disabled={itemCount < 2}
+              className={`w-full py-3 font-semibold rounded-xl transition-colors ${
+                itemCount >= 2
+                  ? 'bg-red-600 hover:bg-red-700 text-white'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
             >
-              Next
-            </button>
-          </div>
-        )}
-
-        {stage === 'select' && (
-          <div className="bg-white rounded-2xl shadow-xl p-6 text-center">
-            <h2 className="text-xl font-bold text-gray-800 mb-2">How many to keep?</h2>
-            <p className="text-gray-500 mb-6">
-              You have {choices.length} choices. How many survivors?
-            </p>
-
-            <div className="flex justify-center gap-3 mb-6">
-              {[1, 2, 3].filter(n => n < choices.length).map(n => (
-                <button
-                  key={n}
-                  onClick={() => handleStartElimination(n)}
-                  className="w-20 h-20 rounded-2xl bg-red-100 hover:bg-red-200 text-red-700 font-bold text-2xl transition-colors flex flex-col items-center justify-center"
-                >
-                  {n}
-                  <span className="text-xs font-normal text-red-500">
-                    {n === 1 ? 'winner' : 'winners'}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <div className="bg-gray-50 rounded-xl p-3 mb-4">
-              <p className="text-xs text-gray-500 mb-2">Your choices:</p>
-              <div className="flex flex-wrap justify-center gap-1">
-                {choices.map((c, i) => (
-                  <span key={i} className="px-2 py-1 bg-white rounded text-sm text-gray-700">{c}</span>
-                ))}
-              </div>
-            </div>
-
-            <button
-              onClick={() => setStage('input')}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
-              ← Back to edit
+              Start Elimination
             </button>
           </div>
         )}
@@ -706,10 +748,12 @@ function App() {
         {stage === 'eliminating' && (
           <div className="bg-white rounded-2xl shadow-xl p-6">
             <EliminationArena
+              key={retryKey}
               choices={choices}
               keepCount={keepCount}
               onComplete={handleComplete}
               onReset={reset}
+              onRetry={retry}
             />
           </div>
         )}

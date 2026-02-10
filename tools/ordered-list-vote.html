@@ -428,8 +428,8 @@ function App() {
   const [votes, setVotes] = useState([]);
   const [currentVoterIdx, setCurrentVoterIdx] = useState(0);
   const [currentOrder, setCurrentOrder] = useState([]);
-  const [choicesInput, setChoicesInput] = useState('');
-  const [votersInput, setVotersInput] = useState('');
+  const [choiceInputs, setChoiceInputs] = useState(['', '']);
+  const [voterInputs, setVoterInputs] = useState(['', '']);
   const [showHandoff, setShowHandoff] = useState(false);
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -515,8 +515,10 @@ function App() {
   }, []);
 
   const loadFromHistory = (entry) => {
-    setChoicesInput(entry.choices.join('\n'));
-    setVotersInput(entry.voters.join('\n'));
+    const choices = entry.choices.length >= 2 ? entry.choices : [...entry.choices, ...Array(2 - entry.choices.length).fill('')];
+    const voters = entry.voters.length >= 2 ? entry.voters : [...entry.voters, ...Array(2 - entry.voters.length).fill('')];
+    setChoiceInputs(choices);
+    setVoterInputs(voters);
     setShowHistory(false);
   };
 
@@ -527,15 +529,15 @@ function App() {
   };
 
   const handleSetupSubmit = () => {
-    const choiceList = choicesInput.split('\n').map(s => s.trim()).filter(s => s.length > 0);
-    const voterList = votersInput.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    const choiceList = choiceInputs.map(s => s.trim()).filter(s => s.length > 0);
+    const voterList = voterInputs.map(s => s.trim()).filter(s => s.length > 0);
 
     if (choiceList.length < 2) {
       alert('Please enter at least 2 choices');
       return;
     }
-    if (voterList.length < 1) {
-      alert('Please enter at least 1 voter name');
+    if (voterList.length < 2) {
+      alert('Please enter at least 2 voters');
       return;
     }
 
@@ -547,7 +549,7 @@ function App() {
     setVoters(voterList);
     setVotes([]);
     setCurrentVoterIdx(0);
-    setCurrentOrder([...choiceList]); // Start with original order
+    setCurrentOrder(shuffleArray(choiceList)); // Randomize to prevent bias
     setShowHandoff(true);
   };
 
@@ -565,7 +567,7 @@ function App() {
 
     if (currentVoterIdx + 1 < voters.length) {
       setCurrentVoterIdx(currentVoterIdx + 1);
-      setCurrentOrder([...choices]); // Reset order for next voter
+      setCurrentOrder(shuffleArray(choices)); // Randomize for next voter to prevent bias
       setShowHandoff(true);
       setStage('handoff');
     } else {
@@ -586,23 +588,27 @@ function App() {
     setVotes([]);
     setCurrentVoterIdx(0);
     setCurrentOrder([]);
-    setChoicesInput('');
-    setVotersInput('');
+    setChoiceInputs(['', '']);
+    setVoterInputs(['', '']);
     setShowHandoff(false);
   };
 
-  const shuffleOrder = () => {
-    const shuffled = [...currentOrder];
+  const shuffleArray = (arr) => {
+    const shuffled = [...arr];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    setCurrentOrder(shuffled);
+    return shuffled;
+  };
+
+  const shuffleOrder = () => {
+    setCurrentOrder(shuffleArray(currentOrder));
   };
 
   return (
     <div className="h-full bg-gradient-to-br from-orange-50 to-amber-100 p-4 flex items-center justify-center overflow-auto">
-      <a href="/my-tools/" className="absolute top-4 left-4 p-2 bg-white/80 hover:bg-white rounded-full shadow-sm transition-colors">
+      <a href="../index.html" className="absolute top-4 left-4 p-2 bg-white/80 hover:bg-white rounded-full shadow-sm transition-colors">
           <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
@@ -617,37 +623,100 @@ function App() {
             </p>
 
             <div className="space-y-4">
+              {/* Choices */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Choices to rank (one per line)
+                  Choices to rank
                 </label>
-                <textarea
-                  value={choicesInput}
-                  onChange={(e) => setChoicesInput(e.target.value)}
-                  placeholder={"Italian restaurant\nThai restaurant\nMexican restaurant\nIndian restaurant"}
-                  className="w-full h-32 p-4 border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
-                />
+                <div className="space-y-2">
+                  {choiceInputs.map((value, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={value}
+                        onChange={(e) => {
+                          const newInputs = [...choiceInputs];
+                          newInputs[idx] = e.target.value;
+                          setChoiceInputs(newInputs);
+                        }}
+                        placeholder={`Choice ${idx + 1}`}
+                        className="flex-1 p-3 border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      />
+                      {choiceInputs.length > 2 && (
+                        <button
+                          onClick={() => setChoiceInputs(choiceInputs.filter((_, i) => i !== idx))}
+                          className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setChoiceInputs([...choiceInputs, ''])}
+                    className="w-full py-2 text-sm text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors flex items-center justify-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add choice
+                  </button>
+                </div>
               </div>
 
+              {/* Voters */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Voter names (one per line)
+                  Voters
                 </label>
-                <textarea
-                  value={votersInput}
-                  onChange={(e) => setVotersInput(e.target.value)}
-                  placeholder={"Alice\nBob\nCharlie\nDiana"}
-                  className="w-full h-28 p-4 border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
-                />
+                <div className="space-y-2">
+                  {voterInputs.map((value, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={value}
+                        onChange={(e) => {
+                          const newInputs = [...voterInputs];
+                          newInputs[idx] = e.target.value;
+                          setVoterInputs(newInputs);
+                        }}
+                        placeholder={`Voter ${idx + 1}`}
+                        className="flex-1 p-3 border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      />
+                      {voterInputs.length > 2 && (
+                        <button
+                          onClick={() => setVoterInputs(voterInputs.filter((_, i) => i !== idx))}
+                          className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setVoterInputs([...voterInputs, ''])}
+                    className="w-full py-2 text-sm text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors flex items-center justify-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add voter
+                  </button>
+                </div>
               </div>
 
+              {/* History */}
               {history.length > 0 && (
-                <div>
+                <div className="pt-2 border-t border-gray-100">
                   <button
                     onClick={() => setShowHistory(!showHistory)}
-                    className="text-sm text-orange-600 hover:text-orange-700 flex items-center gap-1"
+                    className="text-sm text-gray-500 hover:text-orange-600 flex items-center gap-1"
                   >
-                    {showHistory ? 'Hide' : 'Load'} previous sessions ({history.length})
+                    {showHistory ? 'Hide' : 'Load'} previous ({history.length})
                     <svg className={`w-4 h-4 transition-transform ${showHistory ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>

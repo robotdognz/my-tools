@@ -2,8 +2,8 @@
   "name": "Marco's Decision Tools",
   "short_name": "Decision Tools",
   "description": "Tools to help you make decisions",
-  "start_url": "/my-tools/index.html",
-  "scope": "/my-tools/",
+  "start_url": "./index.html",
+  "scope": "./",
   "id": "/my-tools/",
   "display": "standalone",
   "orientation": "portrait",
@@ -11,25 +11,25 @@
   "theme_color": "#7c3aed",
   "icons": [
     {
-      "src": "/my-tools/icon-192.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/my-tools/icon-512.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/my-tools/icon-192.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/my-tools/icon-512.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
