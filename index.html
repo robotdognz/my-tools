@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Marco's Decision Tools</title>
-  <link rel="manifest" href="/my-tools/manifest.json">
+  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#475569">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="apple-touch-icon" href="/my-tools/icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     // Hide install prompt only when truly running as installed app
@@ -47,7 +47,7 @@
     </div>
 
     <!-- Interactive Tool Finder -->
-    <details class="mb-6 bg-white/70 rounded-xl border border-slate-200" id="tool-finder">
+    <details class="mb-6 bg-white/70 rounded-xl border border-slate-200" id="tool-finder" open>
       <summary class="p-4 cursor-pointer text-sm font-medium text-slate-700 flex items-center justify-between">
         <span>Help me find the right tool</span>
         <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -93,12 +93,12 @@
       let rationality = 3;
 
       const tools = {
-        matrix: { name: 'Decision Matrix', emoji: '📊', href: '/my-tools/tools/decision-matrix.html', desc: 'Analyze options with decision theory', rationality: 1, group: false },
-        ranker: { name: 'Choice Ranker', emoji: '⚖️', href: '/my-tools/tools/choice-ranker.html', desc: 'Compare options head-to-head', rationality: 2, group: false },
-        narrower: { name: 'Choice Narrower', emoji: '🎲', href: '/my-tools/tools/choice-narrower.html', desc: 'Randomly eliminate until one remains', rationality: 3, group: false },
-        battle: { name: 'Decision Battle', emoji: '⚔️', href: '/my-tools/tools/decision-battle.html', desc: 'Gamified battles reveal your heart', rationality: 4, group: false },
-        numerology: { name: 'Decision Numerology', emoji: '🔮', href: '/my-tools/tools/decision-numerology.html', desc: 'Let cosmic numbers guide you', rationality: 5, group: false },
-        vote: { name: 'Team List Vote', emoji: '🗳️', href: '/my-tools/tools/ordered-list-vote.html', desc: 'Collect ranked votes from everyone', rationality: 2, group: true },
+        matrix: { name: 'Decision Matrix', emoji: '📊', href: 'tools/decision-matrix.html', desc: 'Analyze options with decision theory', rationality: 1, group: false },
+        ranker: { name: 'Choice Ranker', emoji: '⚖️', href: 'tools/choice-ranker.html', desc: 'Compare options head-to-head', rationality: 2, group: false },
+        narrower: { name: 'Choice Narrower', emoji: '🎲', href: 'tools/choice-narrower.html', desc: 'Randomly eliminate until one remains', rationality: 3, group: false },
+        battle: { name: 'Decision Battle', emoji: '⚔️', href: 'tools/decision-battle.html', desc: 'Gamified battles reveal your heart', rationality: 4, group: false },
+        numerology: { name: 'Decision Numerology', emoji: '🔮', href: 'tools/decision-numerology.html', desc: 'Let cosmic numbers guide you', rationality: 5, group: false },
+        vote: { name: 'Team List Vote', emoji: '🗳️', href: 'tools/ordered-list-vote.html', desc: 'Collect ranked votes from everyone', rationality: 2, group: true },
       };
 
       function setGroup(val) {
@@ -158,73 +158,81 @@
       updateRecommendation();
     </script>
 
-    <div class="space-y-3" id="tool-list">
-      <!-- Decision Matrix: Cyan/teal analytical theme -->
-      <a href="/my-tools/tools/decision-matrix.html" class="block p-4 bg-gradient-to-r from-cyan-50 to-teal-50 rounded-xl shadow-sm hover:shadow-md transition-all hover:scale-[1.02] border border-cyan-200/50">
-        <div class="flex items-center gap-3">
-          <span class="text-2xl">📊</span>
-          <div>
-            <div class="font-semibold text-cyan-800">Decision Matrix</div>
-            <div class="text-sm text-cyan-600/70">Decision theory, the most logical way to make a decision</div>
+    <details class="mb-6 bg-white/70 rounded-xl border border-slate-200">
+      <summary class="p-4 cursor-pointer text-sm font-medium text-slate-700 flex items-center justify-between">
+        <span>All tools</span>
+        <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </summary>
+      <div class="px-4 pb-4 space-y-3" id="tool-list">
+        <!-- Decision Matrix: Cyan/teal analytical theme -->
+        <a href="tools/decision-matrix.html" class="block p-4 bg-gradient-to-r from-cyan-50 to-teal-50 rounded-xl shadow-sm hover:shadow-md transition-all hover:scale-[1.02] border border-cyan-200/50">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">📊</span>
+            <div>
+              <div class="font-semibold text-cyan-800">Decision Matrix</div>
+              <div class="text-sm text-cyan-600/70">Decision theory, the most logical way to make a decision</div>
+            </div>
           </div>
-        </div>
-      </a>
+        </a>
 
-      <!-- Choice Ranker: Warm red/orange ranking theme -->
-      <a href="/my-tools/tools/choice-ranker.html" class="block p-4 bg-gradient-to-r from-red-100 to-orange-100 rounded-xl shadow-sm hover:shadow-md transition-all hover:scale-[1.02] border border-red-300/50">
-        <div class="flex items-center gap-3">
-          <span class="text-2xl">⚖️</span>
-          <div>
-            <div class="font-semibold text-red-800">Choice Ranker</div>
-            <div class="text-sm text-red-600/70">Compare options two at a time to find your true preference order</div>
+        <!-- Choice Ranker: Warm red/orange ranking theme -->
+        <a href="tools/choice-ranker.html" class="block p-4 bg-gradient-to-r from-red-100 to-orange-100 rounded-xl shadow-sm hover:shadow-md transition-all hover:scale-[1.02] border border-red-300/50">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">⚖️</span>
+            <div>
+              <div class="font-semibold text-red-800">Choice Ranker</div>
+              <div class="text-sm text-red-600/70">Compare options two at a time to find your true preference order</div>
+            </div>
           </div>
-        </div>
-      </a>
+        </a>
 
-      <!-- Choice Narrower: Violet/indigo elimination theme -->
-      <a href="/my-tools/tools/choice-narrower.html" class="block p-4 bg-gradient-to-r from-violet-50 to-indigo-50 rounded-xl shadow-sm hover:shadow-md transition-all hover:scale-[1.02] border border-violet-200/50">
-        <div class="flex items-center gap-3">
-          <span class="text-2xl">🎲</span>
-          <div>
-            <div class="font-semibold text-violet-800">Choice Narrower</div>
-            <div class="text-sm text-violet-600/70">Randomly eliminate options until only the best remain</div>
+        <!-- Choice Narrower: Violet/indigo elimination theme -->
+        <a href="tools/choice-narrower.html" class="block p-4 bg-gradient-to-r from-violet-50 to-indigo-50 rounded-xl shadow-sm hover:shadow-md transition-all hover:scale-[1.02] border border-violet-200/50">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">🎲</span>
+            <div>
+              <div class="font-semibold text-violet-800">Choice Narrower</div>
+              <div class="text-sm text-violet-600/70">Randomly eliminate options until only the best remain</div>
+            </div>
           </div>
-        </div>
-      </a>
+        </a>
 
-      <!-- Team List Vote: Orange/amber voting theme -->
-      <a href="/my-tools/tools/ordered-list-vote.html" class="block p-4 bg-gradient-to-r from-orange-100 to-amber-100 rounded-xl shadow-sm hover:shadow-md transition-all hover:scale-[1.02] border border-orange-300/50">
-        <div class="flex items-center gap-3">
-          <span class="text-2xl">🗳️</span>
-          <div>
-            <div class="font-semibold text-orange-800">Team List Vote</div>
-            <div class="text-sm text-orange-600/70">Collect ranked votes from a group to find the consensus favorite</div>
+        <!-- Team List Vote: Orange/amber voting theme -->
+        <a href="tools/ordered-list-vote.html" class="block p-4 bg-gradient-to-r from-orange-100 to-amber-100 rounded-xl shadow-sm hover:shadow-md transition-all hover:scale-[1.02] border border-orange-300/50">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">🗳️</span>
+            <div>
+              <div class="font-semibold text-orange-800">Team List Vote</div>
+              <div class="text-sm text-orange-600/70">Collect ranked votes from a group to find the consensus favorite</div>
+            </div>
           </div>
-        </div>
-      </a>
+        </a>
 
-      <!-- Decision Battle: Dark red/fiery battle theme -->
-      <a href="/my-tools/tools/decision-battle.html" class="block p-4 bg-gradient-to-r from-slate-800 to-red-900 rounded-xl shadow-md hover:shadow-lg transition-all hover:scale-[1.02] border border-red-700/30">
-        <div class="flex items-center gap-3">
-          <span class="text-2xl">⚔️</span>
-          <div>
-            <div class="font-semibold text-red-100">Decision Battle</div>
-            <div class="text-sm text-red-300/80">Your choices become monsters, discover which your heart favors</div>
+        <!-- Decision Battle: Dark red/fiery battle theme -->
+        <a href="tools/decision-battle.html" class="block p-4 bg-gradient-to-r from-slate-800 to-red-900 rounded-xl shadow-md hover:shadow-lg transition-all hover:scale-[1.02] border border-red-700/30">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">⚔️</span>
+            <div>
+              <div class="font-semibold text-red-100">Decision Battle</div>
+              <div class="text-sm text-red-300/80">Your choices become monsters, discover which your heart favors</div>
+            </div>
           </div>
-        </div>
-      </a>
+        </a>
 
-      <!-- Decision Numerology: Dark purple mystical theme -->
-      <a href="/my-tools/tools/decision-numerology.html" class="block p-4 bg-gradient-to-r from-indigo-950 to-purple-900 rounded-xl shadow-md hover:shadow-lg transition-all hover:scale-[1.02] border border-purple-500/30">
-        <div class="flex items-center gap-3">
-          <span class="text-2xl">🔮</span>
-          <div>
-            <div class="font-semibold text-purple-200">Decision Numerology</div>
-            <div class="text-sm text-purple-300/80">Let cosmic numbers guide your choices</div>
+        <!-- Decision Numerology: Dark purple mystical theme -->
+        <a href="tools/decision-numerology.html" class="block p-4 bg-gradient-to-r from-indigo-950 to-purple-900 rounded-xl shadow-md hover:shadow-lg transition-all hover:scale-[1.02] border border-purple-500/30">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">🔮</span>
+            <div>
+              <div class="font-semibold text-purple-200">Decision Numerology</div>
+              <div class="text-sm text-purple-300/80">Let cosmic numbers guide your choices</div>
+            </div>
           </div>
-        </div>
-      </a>
-    </div>
+        </a>
+      </div>
+    </details>
 
     <p class="text-center text-gray-400 text-xs mt-8">
       Works offline • Add to home screen for best experience
@@ -233,7 +241,7 @@
 
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/my-tools/sw.js')
+      navigator.serviceWorker.register('sw.js')
         .then((reg) => console.log('SW registered', reg.scope))
         .catch(err => console.log('SW failed:', err));
     }
