@@ -273,6 +273,29 @@ function generateItem() {
 // localStorage helpers
 const STORAGE_KEY = 'decision-battle-history';
 
+// Fun random names for quick play
+const RANDOM_NAMES = [
+  ['Pizza', 'Tacos'],
+  ['Beach', 'Mountains'],
+  ['Coffee', 'Tea'],
+  ['Cat', 'Dog'],
+  ['Summer', 'Winter'],
+  ['Morning', 'Night'],
+  ['Netflix', 'Sleep'],
+  ['Cake', 'Ice Cream'],
+  ['Red', 'Blue'],
+  ['Yes', 'No'],
+  ['Left', 'Right'],
+  ['Sweet', 'Savory'],
+  ['City', 'Countryside'],
+  ['Books', 'Movies'],
+  ['Rain', 'Sunshine'],
+];
+
+function getRandomNames() {
+  return RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
+}
+
 function loadHistory() {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
@@ -517,6 +540,7 @@ function App() {
   const { ShareCardFooter } = window;
   const [stage, setStage] = useState('input'); // input, intro, battle, result
   const [choices, setChoices] = useState(['', '']);
+  const [isRandomNames, setIsRandomNames] = useState(false);
   const [monsters, setMonsters] = useState([null, null]);
   const [battleLog, setBattleLog] = useState([]);
   const [itemsUsed, setItemsUsed] = useState([[], []]); // Track items used on each monster (for analysis)
@@ -562,15 +586,17 @@ function App() {
           if (prev.length >= MAX_SHELF_ITEMS) return prev;
           return [...prev, generateItem()];
         });
-      }, 800);
+      }, 2500);
       return () => clearTimeout(timer);
     }
   }, [items.length, stage, winner]);
 
-  // Discard all items
+  // Discard all items and refill with new ones
   const discardAllItems = () => {
     recordInteraction();
-    setItems([]);
+    const count = items.length;
+    const newItems = Array.from({ length: count }, () => generateItem());
+    setItems(newItems);
   };
 
   const shareResults = async () => {
@@ -643,8 +669,10 @@ function App() {
     }
 
     const trimmedChoices = [choices[0].trim(), choices[1].trim()];
-    saveToHistory(trimmedChoices);
-    setHistory(loadHistory());
+    if (!isRandomNames) {
+      saveToHistory(trimmedChoices);
+      setHistory(loadHistory());
+    }
 
     const m1 = generateMonster(trimmedChoices[0], 0);
     const m2 = generateMonster(trimmedChoices[1], 1);
@@ -1056,6 +1084,7 @@ function App() {
   const reset = () => {
     setStage('input');
     setChoices(['', '']);
+    setIsRandomNames(false);
     setMonsters([null, null]);
     setBattleLog([]);
     setItemsUsed([[], []]);
@@ -1119,7 +1148,10 @@ function App() {
                 <input
                   type="text"
                   value={choices[0]}
-                  onChange={(e) => setChoices([e.target.value, choices[1]])}
+                  onChange={(e) => {
+                    setChoices([e.target.value, choices[1]]);
+                    setIsRandomNames(false);
+                  }}
                   placeholder="e.g., Take the job"
                   className="w-full p-3 bg-slate-700/50 border border-red-500/30 rounded-xl text-red-100 placeholder-red-300/40 focus:outline-none focus:ring-2 focus:ring-red-500/50"
                   maxLength={30}
@@ -1133,12 +1165,25 @@ function App() {
                 <input
                   type="text"
                   value={choices[1]}
-                  onChange={(e) => setChoices([choices[0], e.target.value])}
+                  onChange={(e) => {
+                    setChoices([choices[0], e.target.value]);
+                    setIsRandomNames(false);
+                  }}
                   placeholder="e.g., Stay where I am"
                   className="w-full p-3 bg-slate-700/50 border border-red-500/30 rounded-xl text-red-100 placeholder-red-300/40 focus:outline-none focus:ring-2 focus:ring-red-500/50"
                   maxLength={30}
                 />
               </div>
+
+              <button
+                onClick={() => {
+                  setChoices(getRandomNames());
+                  setIsRandomNames(true);
+                }}
+                className="w-full py-2 bg-slate-700/50 hover:bg-slate-600/50 text-red-300 text-sm rounded-xl transition-all border border-red-500/20"
+              >
+                🎲 Use Random Names
+              </button>
             </div>
 
             {history.length > 0 && (
