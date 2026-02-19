@@ -86,17 +86,21 @@
     </details>
 
     <script>
-      let isFlipping = false;
+      let flipTimeout = null;
 
       function flipCoin() {
-        if (isFlipping) return;
-        isFlipping = true;
-
         const coin = document.getElementById('coin');
         const face = document.getElementById('coin-face');
         const result = document.getElementById('coin-result');
 
-        // Start flip animation
+        // Clear any existing timeout
+        if (flipTimeout) {
+          clearTimeout(flipTimeout);
+        }
+
+        // Restart animation by removing and re-adding class
+        coin.classList.remove('coin-flipping');
+        void coin.offsetWidth; // Force reflow to restart animation
         coin.classList.add('coin-flipping');
         face.textContent = '';
         result.textContent = '';
@@ -105,11 +109,11 @@
         const isHeads = Math.random() < 0.5;
 
         // Show result after animation
-        setTimeout(() => {
+        flipTimeout = setTimeout(() => {
           coin.classList.remove('coin-flipping');
           face.textContent = isHeads ? 'H' : 'T';
           result.textContent = isHeads ? 'Heads!' : 'Tails!';
-          isFlipping = false;
+          flipTimeout = null;
         }, 1000);
       }
     </script>
@@ -123,6 +127,12 @@
         </svg>
       </summary>
       <div class="px-4 pb-4">
+
+      <!-- Recommendation (at top so thumb doesn't cover it) -->
+      <p class="text-xs text-slate-500 mb-2">Recommendation:</p>
+      <div id="recommendation" class="p-3 rounded-lg border-2 transition-all mb-8">
+        <!-- Filled by JS -->
+      </div>
 
       <!-- Solo vs Group toggle -->
       <div class="mb-4">
@@ -138,7 +148,7 @@
       </div>
 
       <!-- Rationality slider -->
-      <div class="mb-4" id="rationality-section">
+      <div id="rationality-section">
         <p class="text-xs text-slate-500 mb-2">How do you want to decide?</p>
         <div class="flex items-center gap-3">
           <span class="text-xs text-slate-500">🧠 Logical</span>
@@ -147,11 +157,6 @@
             oninput="updateRecommendation()">
           <span class="text-xs text-slate-500">✨ Vibes</span>
         </div>
-      </div>
-
-      <!-- Recommendation -->
-      <div id="recommendation" class="p-3 rounded-lg border-2 transition-all">
-        <!-- Filled by JS -->
       </div>
       </div>
     </details>
@@ -205,7 +210,7 @@
         };
         const c = colors[tool.rationality] || colors[3];
 
-        rec.className = `p-3 rounded-lg border-2 transition-all ${c.bg} ${c.border}`;
+        rec.className = `p-3 rounded-lg border-2 transition-all mb-8 ${c.bg} ${c.border}`;
         rec.innerHTML = `
           <a href="${tool.href}" class="block">
             <div class="flex items-center gap-3">
