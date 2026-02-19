@@ -31,6 +31,36 @@
       animation: mystical-glow 3s ease-in-out infinite;
     }
 
+    @keyframes cosmic-pulse {
+      0%, 100% {
+        box-shadow: 0 0 15px rgba(251, 191, 36, 0.4), 0 0 30px rgba(147, 51, 234, 0.3);
+        transform: scale(1);
+      }
+      50% {
+        box-shadow: 0 0 25px rgba(251, 191, 36, 0.6), 0 0 50px rgba(147, 51, 234, 0.5);
+        transform: scale(1.02);
+      }
+    }
+
+    .cosmic-button {
+      animation: cosmic-pulse 2s ease-in-out infinite;
+    }
+
+    .cosmic-button:hover {
+      animation: none;
+      transform: scale(1.02);
+      box-shadow: 0 0 30px rgba(251, 191, 36, 0.7), 0 0 60px rgba(147, 51, 234, 0.6);
+    }
+
+    @keyframes sparkle {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .sparkle {
+      animation: sparkle 1.5s ease-in-out infinite;
+    }
+
     .floating {
       animation: float 3s ease-in-out infinite;
     }
@@ -566,6 +596,29 @@ function calculateNumerologyScore(numbers) {
 
 const STORAGE_KEY = 'decision-numerology-history';
 
+// Fun random names for quick play
+const RANDOM_NAMES = [
+  ['Pizza', 'Tacos'],
+  ['Beach', 'Mountains'],
+  ['Coffee', 'Tea'],
+  ['Cat', 'Dog'],
+  ['Summer', 'Winter'],
+  ['Morning', 'Night'],
+  ['Netflix', 'Sleep'],
+  ['Cake', 'Ice Cream'],
+  ['Red', 'Blue'],
+  ['Yes', 'No'],
+  ['Left', 'Right'],
+  ['Sweet', 'Savory'],
+  ['City', 'Countryside'],
+  ['Books', 'Movies'],
+  ['Rain', 'Sunshine'],
+];
+
+function getRandomNames() {
+  return RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
+}
+
 function loadHistory() {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
@@ -593,6 +646,7 @@ function App() {
   const { ShareCardFooter } = window;
   const [stage, setStage] = useState('choices'); // choices, numbers, reading, history
   const [choices, setChoices] = useState(['', '']);
+  const [isRandomNames, setIsRandomNames] = useState(false);
   const [choiceNumbers, setChoiceNumbers] = useState([[], []]);
   const [numberFieldValues, setNumberFieldValues] = useState([['', ''], ['', '']]);
   const [numFields, setNumFields] = useState(2);
@@ -676,8 +730,10 @@ function App() {
       };
 
       setResults(reading);
-      saveToHistory(reading, choices, numberFieldValues);
-      setHistory(loadHistory());
+      if (!isRandomNames) {
+        saveToHistory(reading, choices, numberFieldValues);
+        setHistory(loadHistory());
+      }
 
       setIsReading(false);
       setShowConfetti(true);
@@ -738,6 +794,7 @@ function App() {
   const reset = () => {
     setStage('choices');
     setChoices(['', '']);
+    setIsRandomNames(false);
     setChoiceNumbers([[], []]);
     setNumberFieldValues([['', ''], ['', '']]);
     setNumFields(2);
@@ -856,6 +913,7 @@ function App() {
                       const newChoices = [...choices];
                       newChoices[idx] = e.target.value;
                       setChoices(newChoices);
+                      setIsRandomNames(false);
                     }}
                     placeholder={choices.length === 1 ? "e.g., My lucky numbers" : (idx === 0 ? "e.g., Take the new job" : "e.g., Stay at current job")}
                     className="w-full p-3 bg-slate-800/50 border border-purple-500/30 rounded-xl text-purple-100 placeholder-purple-400/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
@@ -874,6 +932,18 @@ function App() {
                   + Add another choice
                 </button>
               )}
+
+              <button
+                onClick={() => {
+                  const randomPair = getRandomNames();
+                  setChoices(randomPair);
+                  setNumberFieldValues([Array(numFields).fill(''), Array(numFields).fill('')]);
+                  setIsRandomNames(true);
+                }}
+                className="w-full py-2 bg-slate-700/50 hover:bg-slate-600/50 text-purple-300 text-sm rounded-xl transition-all border border-purple-500/20"
+              >
+                🎲 Use Random Names
+              </button>
             </div>
 
             <button
@@ -1337,23 +1407,26 @@ function App() {
 
                   {/* Cosmic Discoveries - prominent button */}
                   {s.findings && (s.findings.multiNumber.length > 0 || s.findings.singleNumber.length > 0) && (
-                    <details className="mt-3 group">
-                      <summary className="cursor-pointer select-none">
-                        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-600/30 to-pink-600/30 hover:from-purple-600/50 hover:to-pink-600/50 rounded-xl border border-purple-400/30 transition-all">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">✨</span>
+                    <details className="mt-4 group">
+                      <summary className="cursor-pointer select-none list-none">
+                        <div className="cosmic-button flex items-center justify-between p-4 bg-gradient-to-r from-yellow-500/20 via-purple-600/40 to-pink-500/20 hover:from-yellow-500/30 hover:via-purple-600/50 hover:to-pink-500/30 rounded-xl border-2 border-yellow-400/50 transition-all">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl sparkle">🌟</span>
                             <div>
-                              <p className="text-sm font-medium text-purple-200">
-                                View All Equations
+                              <p className="text-sm font-bold text-yellow-200">
+                                ✨ Discover Your Cosmic Connections!
                               </p>
-                              <p className="text-xs text-purple-300/60">
-                                {s.findings.multiNumber.length} connections + {s.findings.singleNumber.length} properties found
+                              <p className="text-xs text-yellow-100/80 mt-0.5">
+                                {s.findings.multiNumber.length + s.findings.singleNumber.length} sacred equations found linking your numbers to the universe
                               </p>
                             </div>
                           </div>
-                          <svg className="w-5 h-5 text-purple-300 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs bg-yellow-400/30 text-yellow-200 px-2 py-1 rounded-full font-medium">TAP</span>
+                            <svg className="w-5 h-5 text-yellow-300 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
                         </div>
                       </summary>
                       <div className="mt-3 space-y-3 pt-3 border-t border-purple-500/20">
