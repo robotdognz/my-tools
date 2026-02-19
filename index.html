@@ -11,6 +11,22 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes coin-flip {
+      0% { transform: rotateY(0deg); }
+      100% { transform: rotateY(1800deg); }
+    }
+    .coin-flipping {
+      animation: coin-flip 1s ease-out;
+    }
+    .coin {
+      transform-style: preserve-3d;
+      transition: transform 0.1s;
+    }
+    .coin:active {
+      transform: scale(0.95);
+    }
+  </style>
   <script>
     // Hide install prompt only when truly running as installed app
     document.addEventListener('DOMContentLoaded', function() {
@@ -46,10 +62,62 @@
       </details>
     </div>
 
+    <!-- Coin Flipper -->
+    <details class="mb-6 bg-white/70 rounded-xl border border-slate-200" open>
+      <summary class="p-4 cursor-pointer text-sm font-medium text-slate-700 flex items-center justify-between">
+        <span>Quick Coin Flip</span>
+        <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </summary>
+      <div class="px-4 pb-4">
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-slate-500">Tap the coin to flip</p>
+          <button
+            id="coin"
+            onclick="flipCoin()"
+            class="coin w-16 h-16 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-500 shadow-lg flex items-center justify-center text-2xl font-bold text-yellow-800 border-4 border-yellow-500 hover:shadow-xl cursor-pointer select-none"
+          >
+            <span id="coin-face">?</span>
+          </button>
+        </div>
+        <p id="coin-result" class="text-center text-sm font-medium text-slate-600 mt-2 h-5"></p>
+      </div>
+    </details>
+
+    <script>
+      let isFlipping = false;
+
+      function flipCoin() {
+        if (isFlipping) return;
+        isFlipping = true;
+
+        const coin = document.getElementById('coin');
+        const face = document.getElementById('coin-face');
+        const result = document.getElementById('coin-result');
+
+        // Start flip animation
+        coin.classList.add('coin-flipping');
+        face.textContent = '';
+        result.textContent = '';
+
+        // Determine result
+        const isHeads = Math.random() < 0.5;
+
+        // Show result after animation
+        setTimeout(() => {
+          coin.classList.remove('coin-flipping');
+          face.textContent = isHeads ? 'H' : 'T';
+          result.textContent = isHeads ? 'Heads!' : 'Tails!';
+          isFlipping = false;
+        }, 1000);
+      }
+    </script>
+
     <!-- Interactive Tool Finder -->
     <details class="mb-6 bg-white/70 rounded-xl border border-slate-200" id="tool-finder" open>
       <summary class="p-4 cursor-pointer text-sm font-medium text-slate-700 flex items-center justify-between">
-        <span>Help me find the right tool</span>
+        <span>Find The Right Decision Tool</span>
         <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
         </svg>
@@ -160,7 +228,7 @@
 
     <details class="mb-6 bg-white/70 rounded-xl border border-slate-200">
       <summary class="p-4 cursor-pointer text-sm font-medium text-slate-700 flex items-center justify-between">
-        <span>All tools</span>
+        <span>Show All Tools</span>
         <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
         </svg>
